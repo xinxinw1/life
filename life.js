@@ -76,10 +76,12 @@ function getStates(grid){
   return states;
 }
 
-function applyStates(grid, states){
+function applyStates(grid, oldstates, newstates){
   for (var i = 0; i < grid.length; i++){
     for (var j = 0; j < grid[i].length; j++){
-      setFill(grid, i, j, states[i][j]);
+      if (oldstates[i][j] !== newstates[i][j]){
+        setFill(grid, i, j, newstates[i][j]);
+      }
     }
   }
 }
@@ -135,7 +137,8 @@ function getNext1(states, i, j){
 }
 
 function life(grid){
-  applyStates(grid, getNextStates(getStates(grid)));
+  var states = getStates(grid);
+  applyStates(grid, states, getNextStates(states));
 }
 
 
