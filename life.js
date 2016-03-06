@@ -140,15 +140,40 @@ function mkToggleFn(grid, i, j){
   };
 }
 
-function mkFillFn(grid, i, j){
-  return function (){
-    fillCell(grid, i, j);
+var origfill = udf;
+var hasPressedDown = false;
+var hasDragged = false;
+function mkDownFn(grid, i, j){
+  return function (e){
+    if (e.which === 1){
+      //console.log("mousedown");
+      origfill = isFilled(grid, i, j);
+      hasPressedDown = true;
+      hasDragged = false;
+      fillCell(grid, i, j);
+    }
   };
 }
 
-function mkDragFn(grid, i, j){
+function mkUpFn(grid, i, j){
   return function (e){
-    if (isDragging)fillCell(grid, i, j);
+    if (e.which === 1){
+      //console.log("mouseup");
+      if (hasPressedDown && !hasDragged){
+        setFill(grid, i, j, !origfill);
+      }
+    }
+  };
+}
+
+
+function mkEnterFn(grid, i, j){
+  return function (e){
+    //console.log("mouseenter");
+    if (isDragging){
+      fillCell(grid, i, j);
+      hasDragged = true;
+    }
   }
 }
 
@@ -195,18 +220,25 @@ var isDragging = false;
 $(function (){
   grid = makeGrid(T("grid"), 40, 90);
   $("#grid").on("mousedown", function (e){
-    //$("#debug").text("Mousedown");
-    isDragging = true;
-    return false;
+    if (e.which === 1){
+      //console.log("grid mousedown");
+      isDragging = true;
+      return false;
+    }
   });
   $(document).mouseup(function (e){
-    //$("#debug").text("Mouseup");
-    isDragging = false;
+    if (e.which === 1){
+      //console.log("global mouseup");
+      isDragging = false;
+      hasPressedDown = false;
+      hasDragged = false;
+    }
   });
   for (var i = 0; i < grid.length; i++){
     for (var j = 0; j < grid[i].length; j++){
-      $(grid[i][j]).on("mouseenter", mkDragFn(grid, i, j));
-      $(grid[i][j]).on("mousedown", mkFillFn(grid, i, j));
+      $(grid[i][j]).on("mouseenter", mkEnterFn(grid, i, j));
+      $(grid[i][j]).on("mousedown", mkDownFn(grid, i, j));
+      $(grid[i][j]).on("mouseup", mkUpFn(grid, i, j));
     }
   }
   
