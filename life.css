@@ -1,0 +1,20 @@
+/****** Game of Life ******/
+
+* {margin: 0; padding: 0; border: 0; outline: 0; font-family: Verdana, sans-serif; background-color: #FFF;}
+
+body {text-align: left; font-size: 16px; color: #000;}
+
+/*** Layout ***/
+
+button {padding: 5px 20px; border: 1px solid #000;}
+
+div#page {margin: 10px;}
+
+div#page > div {
+  margin-bottom: 10px;
+}
+
+div#grid {display: table; border: 1px solid #000; border-collapse: collapse;}
+div#grid > div {display: table-row;}
+div#grid > div > div {display: table-cell; width: 20px; height: 20px; min-width: 20px; min-height: 20px; border: 1px solid #AAA;}
+div#grid > div > div.fill {background-color: #000;}
