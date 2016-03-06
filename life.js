@@ -31,10 +31,14 @@ function makeGrid(elem, rows, cols){
 }
 
 function fillCell(grid, row, col){
+  if (udfp(grid[row]))return;
+  if (udfp(grid[row][col]))return;
   grid[row][col].className = "fill";
 }
 
 function emptyCell(grid, row, col){
+  if (udfp(grid[row]))return;
+  if (udfp(grid[row][col]))return;
   grid[row][col].className = "";
 }
 
@@ -43,6 +47,8 @@ function setFill(grid, row, col, fill){
 }
 
 function isFilled(grid, i, j){
+  if (udfp(grid[i]))return false;
+  if (udfp(grid[i][j]))return false;
   return grid[i][j].className == "fill";
 }
 
@@ -133,61 +139,32 @@ function life(grid){
 }
 
 
-
-function mkToggleFn(grid, i, j){
-  return function (){
-    toggleCell(grid, i, j);
-  };
+function fillGliderSE(grid, i, j){
+  fillCell(grid, i-1, j+1);
+  fillCell(grid, i, j-1);
+  fillCell(grid, i, j+1);
+  fillCell(grid, i+1, j);
+  fillCell(grid, i+1, j+1);
 }
 
-var origfill = udf;
-var hasPressedDown = false;
-var hasDragged = false;
-function mkDownFn(grid, i, j){
-  return function (e){
-    if (e.which === 1){
-      //console.log("mousedown");
-      origfill = isFilled(grid, i, j);
-      hasPressedDown = true;
-      hasDragged = false;
-      fillCell(grid, i, j);
-    }
-  };
+function fillGliderNW(grid, i, j){
+  fillCell(grid, i-1, j-1);
+  fillCell(grid, i-1, j);
+  fillCell(grid, i, j-1);
+  fillCell(grid, i, j+1);
+  fillCell(grid, i+1, j-1);
 }
-
-function mkUpFn(grid, i, j){
-  return function (e){
-    if (e.which === 1){
-      //console.log("mouseup");
-      if (hasPressedDown && !hasDragged){
-        setFill(grid, i, j, !origfill);
-      }
-    }
-  };
-}
-
-
-function mkEnterFn(grid, i, j){
-  return function (e){
-    //console.log("mouseenter");
-    if (isDragging){
-      fillCell(grid, i, j);
-      hasDragged = true;
-    }
-  }
-}
-
 
 var grid;
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
 var currspeed = 1;
-var runner = itr(function (){life(grid);}, 1000/speeds[currspeed]);
+var runner = itr(function gridItrHandle(){life(grid);}, 1000/speeds[currspeed]);
 
-runner.onstart(function (){
+runner.onstart(function runnerStart(){
   $("#startstop").text("Stop");
 });
 
-runner.onstop(function (){
+runner.onstop(function runnerStop(){
   $("#startstop").text("Start");
 });
 
@@ -215,37 +192,197 @@ function dispspeed(n){
   $("#currspeed").text("Speed: " + n + " runs/sec");
 }
 
-var isDragging = false;
+function clearMode(){
+  T("grid").onmousedown = udf;
+  document.onmouseup = udf;
+  for (var i = 0; i < grid.length; i++){
+    for (var j = 0; j < grid[i].length; j++){
+      grid[i][j].onmouseover = udf;
+      grid[i][j].onmousedown = udf;
+      grid[i][j].onmouseup = udf;
+      grid[i][j].onclick = udf;
+    }
+  }
+}
 
-$(function (){
-  grid = makeGrid(T("grid"), 80, 170);
-  $("#grid").on("mousedown", function (e){
+function retFalseFn(f){
+  return function aFalseFn(){
+    f();
+    return false;
+  };
+}
+
+function enableButton(elem, fn){
+  elem.onclick = fn;
+  elem.className = "";
+}
+
+function disableButton(elem){
+  elem.onclick = udf;
+  elem.className = "pressed";
+}
+
+function enableLink(elem, fn){
+  elem.setAttribute('href', "#");
+  elem.onclick = retFalseFn(fn);
+}
+
+function disableLink(elem){
+  elem.removeAttribute('href');
+  elem.onclick = udf;
+}
+
+function emptyMode(){
+  resetButtons();
+  clearMode();
+}
+
+function drawMode(){
+  resetButtons();
+  disableButton(T("draw"));
+  clearMode();
+  
+  var origfill = udf;
+  var hasPressedDown = false;
+  var hasDragged = false;
+  var isDragging = false;
+
+  function mkDownFn(grid, i, j){
+    return function downHandle(e){
+      if (e.which === 1){
+        //console.log("mousedown");
+        origfill = isFilled(grid, i, j);
+        hasPressedDown = true;
+        hasDragged = false;
+        fillCell(grid, i, j);
+      }
+    };
+  }
+  
+  function mkUpFn(grid, i, j){
+    return function upHandle(e){
+      if (e.which === 1){
+        //console.log("mouseup");
+        if (hasPressedDown && !hasDragged){
+          setFill(grid, i, j, !origfill);
+        }
+      }
+    };
+  }
+  
+  
+  function mkEnterFn(grid, i, j){
+    return function enterHandle(e){
+      //console.log("mouseenter");
+      if (isDragging){
+        fillCell(grid, i, j);
+        hasDragged = true;
+      }
+    }
+  }
+
+  
+  T("grid").onmousedown = function gridDownHandle(e){
     if (e.which === 1){
       //console.log("grid mousedown");
       isDragging = true;
       return false;
     }
-  });
-  $(document).mouseup(function (e){
+  };
+  
+  document.onmouseup = function docUpHandle(e){
     if (e.which === 1){
       //console.log("global mouseup");
       isDragging = false;
       hasPressedDown = false;
       hasDragged = false;
     }
-  });
+  };
+  
   for (var i = 0; i < grid.length; i++){
     for (var j = 0; j < grid[i].length; j++){
-      $(grid[i][j]).on("mouseenter", mkEnterFn(grid, i, j));
-      $(grid[i][j]).on("mousedown", mkDownFn(grid, i, j));
-      $(grid[i][j]).on("mouseup", mkUpFn(grid, i, j));
+      grid[i][j].onmouseover = mkEnterFn(grid, i, j);
+      grid[i][j].onmousedown = mkDownFn(grid, i, j);
+      grid[i][j].onmouseup = mkUpFn(grid, i, j);
     }
   }
+}
+
+function resetDrawButtons(){
+  enableButton(T("draw"), drawMode);
+}
+
+function gliderMode(){
+  gliderSEMode();
+}
+
+function gliderButtons(){
+  resetButtons();
+  disableButton(T("glider"));
+  $("#glideropts").show();
+}
+
+function resetGliderOptButtons(){
+  enableLink(T("gliderse"), gliderSEMode);
+  enableLink(T("glidernw"), gliderNWMode);
+}
+
+function gliderSEMode(){
+  gliderButtons();
+  disableLink(T("gliderse"));
+  clearMode();
+  
+  function mkClickFn(grid, i, j){
+    return function clickHandle(e){
+      fillGliderSE(grid, i, j);
+    };
+  }
+  
+  for (var i = 0; i < grid.length; i++){
+    for (var j = 0; j < grid[i].length; j++){
+      grid[i][j].onmouseup = mkClickFn(grid, i, j);
+    }
+  }
+}
+
+function gliderNWMode(){
+  gliderButtons();
+  disableLink(T("glidernw"));
+  clearMode();
+  
+  function mkClickFn(grid, i, j){
+    return function clickHandle(e){
+      fillGliderNW(grid, i, j);
+    };
+  }
+  
+  for (var i = 0; i < grid.length; i++){
+    for (var j = 0; j < grid[i].length; j++){
+      grid[i][j].onmouseup = mkClickFn(grid, i, j);
+    }
+  }
+}
+
+function resetGliderButtons(){
+  enableButton(T("glider"), gliderMode);
+  $("#glideropts").hide();
+  resetGliderOptButtons();
+}
+
+function resetButtons(){
+  resetDrawButtons();
+  resetGliderButtons();
+}
+
+$(function (){
+  grid = makeGrid(T("grid"), 80, 170);
   
   setspeed(speeds[currspeed]);
   
   $("#startstop").click(startstop);
-  $("#clear").click(function (){stop();clearGrid(grid);});
+  $("#clear").click(function clearClickHandle(){stop();clearGrid(grid);});
   $("#faster").click(faster);
   $("#slower").click(slower);
+  
+  drawMode();
 });
