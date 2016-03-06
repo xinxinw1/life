@@ -218,7 +218,7 @@ function dispspeed(n){
 var isDragging = false;
 
 $(function (){
-  grid = makeGrid(T("grid"), 40, 90);
+  grid = makeGrid(T("grid"), 80, 170);
   $("#grid").on("mousedown", function (e){
     if (e.which === 1){
       //console.log("grid mousedown");

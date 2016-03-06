@@ -14,7 +14,7 @@ div#page > div {
   margin-bottom: 10px;
 }
 
-div#grid {display: table; border: 1px solid #000; border-collapse: collapse;}
+div#grid {display: table; border-collapse: collapse;}
 div#grid > div {display: table-row;}
-div#grid > div > div {display: table-cell; width: 20px; height: 20px; min-width: 20px; min-height: 20px; border: 1px solid #AAA;}
+div#grid > div > div {display: table-cell; width: 10px; height: 10px; min-width: 10px; min-height: 10px; border: 1px solid #AAA;}
 div#grid > div > div.fill {background-color: #000;}
