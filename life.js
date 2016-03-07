@@ -14,94 +14,238 @@ var clr = T.clr;
 var itr = T.itr;
 var stp = T.stp;
 
-function makeGrid(elem, rows, cols){
-  var rowarr = [];
-  for (var i = rows; i >= 1; i--){
-    var colarr = [];
+function makeGrid(elem, rows, cols, layers){
+  if (udfp(layers))layers = 1;
+  var states = [];
+  var layarr = [];
+  for (var k = 0; k < layers; k++){
+    layarr[k] = [];
+    states[k] = [];
+  }
+  
+  var gridarr = [];
+  for (var i = 0; i < rows; i++){
+    gridarr[i] = [];
     var row = elm("div");
-    for (var j = cols; j >= 1; j--){
+    for (var k = 0; k < layers; k++){
+      layarr[k][i] = [];
+      states[k][i] = [];
+    }
+    for (var j = 0; j < cols; j++){
       var col = elm("div");
+      for (var k = 0; k < layers; k++){
+        var lay = elm("div");
+        att(col, lay);
+        layarr[k][i][j] = lay;
+        states[k][i][j] = false;
+      }
       att(row, col);
-      colarr.push(col);
+      gridarr[i][j] = col;
     }
     att(elem, row);
-    rowarr.push(colarr);
   }
-  return rowarr;
-}
-
-function fillCell(grid, row, col){
-  if (udfp(grid[row]))return;
-  if (udfp(grid[row][col]))return;
-  grid[row][col].className = "fill";
-}
-
-function emptyCell(grid, row, col){
-  if (udfp(grid[row]))return;
-  if (udfp(grid[row][col]))return;
-  grid[row][col].className = "";
-}
-
-function setFill(grid, row, col, fill){
-  (fill?fillCell:emptyCell)(grid, row, col);
-}
-
-function isFilled(grid, i, j){
-  if (udfp(grid[i]))return false;
-  if (udfp(grid[i][j]))return false;
-  return grid[i][j].className == "fill";
-}
-
-function toggleCell(grid, row, col){
-  setFill(grid, row, col, !isFilled(grid, row, col));
-}
-
-function clearGrid(grid){
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      setFill(grid, i, j, false);
-    }
+  
+  function fill(i, j, l, cls){
+    if (udfp(l))l = 0;
+    if (udfp(cls))cls = "fill";
+    if (udfp(layarr[l]))return;
+    if (udfp(layarr[l][i]))return;
+    if (udfp(layarr[l][i][j]))return;
+    layarr[l][i][j].className = cls;
+    states[l][i][j] = true;
   }
-}
-
-function getStates(grid){
-  var states = [];
-  for (var i = 0; i < grid.length; i++){
-    var row = [];
-    for (var j = 0; j < grid[i].length; j++){
-      row.push(isFilled(grid, i, j));
-    }
-    states.push(row);
+  
+  function empty(i, j, l){
+    if (udfp(l))l = 0;
+    if (udfp(layarr[l]))return;
+    if (udfp(layarr[l][i]))return;
+    if (udfp(layarr[l][i][j]))return;
+    layarr[l][i][j].className = "";
+    states[l][i][j] = false;
   }
-  return states;
-}
-
-function applyStates(grid, oldstates, newstates){
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      if (oldstates[i][j] !== newstates[i][j]){
-        setFill(grid, i, j, newstates[i][j]);
+  
+  function set(tf, i, j, l, cls){
+    (tf?fill:empty)(i, j, l, cls);
+  }
+  
+  function isFilled(i, j, l){
+    if (udfp(l))l = 0;
+    if (udfp(layarr[l]))return false;
+    if (udfp(layarr[l][i]))return false;
+    if (udfp(layarr[l][i][j]))return false;
+    return layarr[l][i][j].className != "";
+  }
+  
+  function toggle(i, j, l, cls){
+    set(!isFilled(i, j, l), i, j, l, cls);
+  }
+  
+  function fillArr(i, j, arr, ci, cj){
+    if (udfp(ci))ci = Math.floor(arr.length/2);
+    if (udfp(cj))cj = Math.floor(arr[0].length/2);
+    for (var r = 0; r < arr.length; r++){
+      for (var c = 0; c < arr[r].length; c++){
+        if (arr[r][c] === 1)fill(i+r-ci, j+c-cj);
       }
     }
   }
+  
+  function clearLayer(l){
+    for (var i = 0; i < layarr[l].length; i++){
+      for (var j = 0; j < layarr[l][i].length; j++){
+        empty(i, j, l);
+      }
+    }
+  }
+  
+  function clear(l){
+    if (!udfp(l))clearLayer(l);
+    for (var k = 0; k < layarr.length; k++){
+      clearLayer(k);
+    }
+  }
+  
+  function getStates(l){
+    if (udfp(l))l = 0;
+    return states[l];
+  }
+  
+  function applyStates(newstates, l){
+    if (udfp(l))l = 0;
+    for (var i = 0; i < layarr[l].length; i++){
+      for (var j = 0; j < layarr[l][i].length; j++){
+        if (states[l][i][j] !== newstates[i][j]){
+          set(newstates[i][j], i, j, l);
+        }
+      }
+    }
+  }
+  
+  var ondrag = function (grid, i, j){};
+  var onclick = function (grid, i, j){};
+  var onclickone = function (grid, i, j, origfill){};
+  
+  var origfill = udf;
+  var hasPressedDown = false;
+  var hasDragged = false;
+  var isDragging = false;
+
+  function mkDownFn(i, j){
+    return function downHandle(e){
+      if (e.which === 1){
+        //console.log("mousedown i " + i + " j " + j);
+        origfill = isFilled(i, j);
+        hasPressedDown = true;
+        hasDragged = false;
+        ondrag(grid, i, j);
+        return false;
+      }
+    };
+  }
+  
+  function mkUpFn(i, j){
+    return function upHandle(e){
+      if (e.which === 1){
+        //console.log("mouseup i " + i + " j " + j);
+        if (hasPressedDown && !hasDragged){
+          onclickone(grid, i, j, origfill);
+        }
+        onclick(grid, i, j);
+      }
+    };
+  }
+  
+  function mkOverFn(i, j){
+    return function overHandle(e){
+      //console.log("mouseover i " + i + " j " + j);
+      if (isDragging){
+        ondrag(grid, i, j);
+        hasDragged = true;
+      }
+    }
+  }
+  
+  function setOnclick(fn){
+    onclick = fn;
+  }
+  
+  function setOndrag(fn){
+    ondrag = fn;
+  }
+  
+  function setOnclickone(fn){
+    onclickone = fn;
+  }
+  
+  function clearHandlers(){
+    ondrag = function (grid, i, j){};
+    onclick = function (grid, i, j){};
+    onclickone = function (grid, i, j, origfill){};
+  }
+  
+  elem.onmousedown = function gridDownHandle(e){
+    if (e.which === 1){
+      //console.log("grid mousedown");
+      isDragging = true;
+      return false;
+    }
+  };
+  
+  document.onmouseup = function docUpHandle(e){
+    if (e.which === 1){
+      //console.log("global mouseup");
+      isDragging = false;
+      hasPressedDown = false;
+      hasDragged = false;
+    }
+  };
+  
+  for (var i = 0; i < gridarr.length; i++){
+    for (var j = 0; j < gridarr[i].length; j++){
+      $(gridarr[i][j]).on("mouseenter", mkOverFn(i, j));
+      gridarr[i][j].onmousedown = mkDownFn(i, j);
+      gridarr[i][j].onmouseup = mkUpFn(i, j);
+    }
+  }
+  
+  var grid = {
+    isFilled: isFilled,
+    fill: fill,
+    fillArr: fillArr,
+    empty: empty,
+    set: set,
+    toggle: toggle,
+    clear: clear,
+    clearLayer: clearLayer,
+    getStates: getStates,
+    applyStates: applyStates,
+    states: states,
+    layarr: layarr,
+    gridarr: gridarr,
+    setOnclick: setOnclick,
+    setOndrag: setOndrag,
+    setOnclickone: setOnclickone,
+    clearHandlers: clearHandlers
+  };
+  
+  return grid;
 }
 
-function emptyStates(states){
+function makeEmptyStates(states){
   var newstates = [];
   for (var i = 0; i < states.length; i++){
-    var row = [];
-    for (var j = 0; j < states.length; j++){
-      row[j] = false;
+    newstates[i] = [];
+    for (var j = 0; j < states[i].length; j++){
+      newstates[i][j] = false;
     }
-    newstates[i] = row;
   }
   return newstates;
 }
 
 function getNextStates(states){
-  var newstates = emptyStates(states);
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
+  var newstates = makeEmptyStates(states);
+  for (var i = 0; i < newstates.length; i++){
+    for (var j = 0; j < newstates[i].length; j++){
       newstates[i][j] = getNext1(states, i, j);
     }
   }
@@ -136,32 +280,58 @@ function getNext1(states, i, j){
   }
 }
 
-function life(grid){
-  var states = getStates(grid);
-  applyStates(grid, states, getNextStates(states));
+var grid;
+var clear;
+
+function life(){
+  grid.applyStates(getNextStates(grid.getStates()));
 }
 
+var gliderSE = [
+  [0, 0, 1],
+  [1, 0, 1],
+  [0, 1, 1]
+];
+
+function clockwise(arr, n){
+  for (var i = n; i >= 1; i--){
+    arr = clockwise1(arr);
+  }
+  return arr;
+}
+
+function clockwise1(arr){
+  var origrows = arr.length;
+  var origcols = arr[0].length;
+  var r = [];
+  for (var i = 0; i < origcols; i++){
+    r[i] = [];
+    for (var j = 0; j < origrows; j++){
+      r[i][j] = arr[origrows-1-j][i];
+    }
+  }
+  return r;
+}
 
 function fillGliderSE(grid, i, j){
-  fillCell(grid, i-1, j+1);
-  fillCell(grid, i, j-1);
-  fillCell(grid, i, j+1);
-  fillCell(grid, i+1, j);
-  fillCell(grid, i+1, j+1);
+  grid.fillArr(i, j, gliderSE);
+}
+
+function fillGliderSW(grid, i, j){
+  grid.fillArr(i, j, clockwise(gliderSE, 1));
 }
 
 function fillGliderNW(grid, i, j){
-  fillCell(grid, i-1, j-1);
-  fillCell(grid, i-1, j);
-  fillCell(grid, i, j-1);
-  fillCell(grid, i, j+1);
-  fillCell(grid, i+1, j-1);
+  grid.fillArr(i, j, clockwise(gliderSE, 2));
 }
 
-var grid;
+function fillGliderNE(grid, i, j){
+  grid.fillArr(i, j, clockwise(gliderSE, 3));
+}
+
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
-var currspeed = 1;
-var runner = itr(function gridItrHandle(){life(grid);}, 1000/speeds[currspeed]);
+var currspeed = 7;
+var runner = itr(function gridItrHandle(){life();});
 
 runner.onstart(function runnerStart(){
   $("#startstop").text("Stop");
@@ -171,19 +341,18 @@ runner.onstop(function runnerStop(){
   $("#startstop").text("Start");
 });
 
-var startstop = runner.startstop;
 var start = runner.start;
 var stop = runner.stop;
-var interval = runner.interval;
+var startstop = runner.startstop;
+
+function setspeed(n){
+  runner.interval(1000/n);
+  dispspeed(n);
+}
 
 function faster(){
   if (currspeed+1 < speeds.length)currspeed++;
   setspeed(speeds[currspeed]);
-}
-
-function setspeed(n){
-  interval(1000/n);
-  dispspeed(n);
 }
 
 function slower(){
@@ -195,23 +364,17 @@ function dispspeed(n){
   $("#currspeed").text("Speed: " + n + " runs/sec");
 }
 
-function clearMode(){
-  T("grid").onmousedown = udf;
-  document.onmouseup = udf;
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      grid[i][j].onmouseover = udf;
-      grid[i][j].onmousedown = udf;
-      grid[i][j].onmouseup = udf;
-      grid[i][j].onclick = udf;
-    }
-  }
-}
-
 function retFalseFn(f){
   return function aFalseFn(){
     f();
     return false;
+  };
+}
+
+function retFnCall(f){
+  var args = T.sli(arguments, 1);
+  return function (){
+    return T.apl(f, args);
   };
 }
 
@@ -235,6 +398,10 @@ function disableLink(elem){
   elem.onclick = udf;
 }
 
+function clearMode(){
+  grid.clearHandlers();
+}
+
 function emptyMode(){
   resetButtons();
   clearMode();
@@ -245,70 +412,16 @@ function drawMode(){
   disableButton(T("draw"));
   clearMode();
   
-  var origfill = udf;
-  var hasPressedDown = false;
-  var hasDragged = false;
-  var isDragging = false;
-
-  function mkDownFn(grid, i, j){
-    return function downHandle(e){
-      if (e.which === 1){
-        //console.log("mousedown");
-        origfill = isFilled(grid, i, j);
-        hasPressedDown = true;
-        hasDragged = false;
-        fillCell(grid, i, j);
-      }
-    };
-  }
+  grid.setOndrag(function (grid, i, j){
+    //console.log("ondrag");
+    grid.fill(i, j);
+  });
   
-  function mkUpFn(grid, i, j){
-    return function upHandle(e){
-      if (e.which === 1){
-        //console.log("mouseup");
-        if (hasPressedDown && !hasDragged){
-          setFill(grid, i, j, !origfill);
-        }
-      }
-    };
-  }
-  
-  
-  function mkEnterFn(grid, i, j){
-    return function enterHandle(e){
-      //console.log("mouseenter");
-      if (isDragging){
-        fillCell(grid, i, j);
-        hasDragged = true;
-      }
-    }
-  }
-
-  
-  T("grid").onmousedown = function gridDownHandle(e){
-    if (e.which === 1){
-      //console.log("grid mousedown");
-      isDragging = true;
-      return false;
-    }
-  };
-  
-  document.onmouseup = function docUpHandle(e){
-    if (e.which === 1){
-      //console.log("global mouseup");
-      isDragging = false;
-      hasPressedDown = false;
-      hasDragged = false;
-    }
-  };
-  
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      grid[i][j].onmouseover = mkEnterFn(grid, i, j);
-      grid[i][j].onmousedown = mkDownFn(grid, i, j);
-      grid[i][j].onmouseup = mkUpFn(grid, i, j);
-    }
-  }
+  grid.setOnclickone(function (grid, i, j, origfill){
+    //console.log("onclickone");
+    //console.log(origfill);
+    grid.set(!origfill, i, j);
+  });
 }
 
 function resetDrawButtons(){
@@ -327,43 +440,37 @@ function gliderButtons(){
 
 function resetGliderOptButtons(){
   enableLink(T("gliderse"), gliderSEMode);
+  enableLink(T("glidersw"), gliderSWMode);
   enableLink(T("glidernw"), gliderNWMode);
+  enableLink(T("gliderne"), gliderNEMode);
 }
 
 function gliderSEMode(){
   gliderButtons();
   disableLink(T("gliderse"));
   clearMode();
-  
-  function mkClickFn(grid, i, j){
-    return function clickHandle(e){
-      fillGliderSE(grid, i, j);
-    };
-  }
-  
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      grid[i][j].onmouseup = mkClickFn(grid, i, j);
-    }
-  }
+  grid.setOnclick(fillGliderSE);
+}
+
+function gliderSWMode(){
+  gliderButtons();
+  disableLink(T("glidersw"));
+  clearMode();
+  grid.setOnclick(fillGliderSW);
 }
 
 function gliderNWMode(){
   gliderButtons();
   disableLink(T("glidernw"));
   clearMode();
-  
-  function mkClickFn(grid, i, j){
-    return function clickHandle(e){
-      fillGliderNW(grid, i, j);
-    };
-  }
-  
-  for (var i = 0; i < grid.length; i++){
-    for (var j = 0; j < grid[i].length; j++){
-      grid[i][j].onmouseup = mkClickFn(grid, i, j);
-    }
-  }
+  grid.setOnclick(fillGliderNW);
+}
+
+function gliderNEMode(){
+  gliderButtons();
+  disableLink(T("gliderne"));
+  clearMode();
+  grid.setOnclick(fillGliderNE);
 }
 
 function resetGliderButtons(){
@@ -378,14 +485,15 @@ function resetButtons(){
 }
 
 $(function (){
-  grid = makeGrid(T("grid"), 80, 170);
+  grid = makeGrid(T("grid"), 80, 170, 2);
+  clear = grid.clear;
   
   setspeed(speeds[currspeed]);
   
   $("#startstop").click(startstop);
-  $("#clear").click(function clearClickHandle(){stop();clearGrid(grid);});
+  $("#clear").click(function (){stop();clear();});
   $("#faster").click(faster);
   $("#slower").click(slower);
   
-  drawMode();
+  drawMode(grid);
 });
