@@ -84,10 +84,14 @@ function makeSimpleGrid(elem, rows, cols){
     borderstyle.set(1, 'div.' + gridcls + ' > div > div {border-right: ' + str + '; border-bottom: ' + str + ';}');
   }
   
+  setBorder("1px dotted #AAA");
+  
   var fillcolorstyle = sty();
   function setFillColor(str){
     fillcolorstyle.set(0, 'div.' + gridcls + ' > div > div.fill {background-color: ' + str + ';}');
   }
+  
+  setFillColor("#000");
   
   var fillopacitystyle = sty();
   function setFillOpacity(str){
@@ -98,6 +102,8 @@ function makeSimpleGrid(elem, rows, cols){
   function setCellSize(str){
     cellstyle.set(0, 'div.' + gridcls + ' > div > div {width: ' + str + '; height: ' + str + '; min-width: ' + str + '; min-height: ' + str + ';}');
   }
+  
+  setCellSize("10px");
   
   var grid;
   
@@ -113,7 +119,7 @@ function makeSimpleGrid(elem, rows, cols){
       var col = elm("div");
       att(row, col);
       gridarr[i][j] = col;
-      state[i][j] = false;
+      state[i][j] = 0;
     }
     att(elem, row);
   }
@@ -124,7 +130,7 @@ function makeSimpleGrid(elem, rows, cols){
     if (udfp(gridarr[i][j]))return;
     if (!state[i][j]){
       gridarr[i][j].classList.add(cls);
-      state[i][j] = true;
+      state[i][j] = 1;
     }
   }
   
@@ -133,7 +139,7 @@ function makeSimpleGrid(elem, rows, cols){
     if (udfp(gridarr[i][j]))return;
     if (state[i][j]){
       gridarr[i][j].classList.remove("fill");;
-      state[i][j] = false;
+      state[i][j] = 0;
     }
   }
   
@@ -141,10 +147,14 @@ function makeSimpleGrid(elem, rows, cols){
     (tf?fill:empty)(i, j, cls);
   }
   
+  function setNum(st, i, j, cls){
+    set(st === 1, i, j, cls);
+  }
+  
   function isFilled(i, j){
     if (udfp(state[i]))return false;
     if (udfp(state[i][j]))return false;
-    return state[i][j];
+    return state[i][j] === 1;
   }
   
   function toggle(i, j, cls){
@@ -167,7 +177,7 @@ function makeSimpleGrid(elem, rows, cols){
     for (var i = 0; i < state.length; i++){
       for (var j = 0; j < state[i].length; j++){
         if (state[i][j] !== newstate[i][j]){
-          set(newstate[i][j], i, j);
+          setNum(newstate[i][j], i, j);
         }
       }
     }
@@ -267,6 +277,7 @@ function makeSimpleGrid(elem, rows, cols){
     fill: fill,
     empty: empty,
     set: set,
+    setNum: setNum,
     toggle: toggle,
     clear: clear,
     getState: getState,
@@ -407,27 +418,6 @@ function makeGrid(elem, rows, cols){
   return grid;
 }
 
-function makeEmptyState(state){
-  var newstate = [];
-  for (var i = 0; i < state.length; i++){
-    newstate[i] = [];
-    for (var j = 0; j < state[i].length; j++){
-      newstate[i][j] = false;
-    }
-  }
-  return newstate;
-}
-
-function getNextState(state){
-  var newstate = makeEmptyState(state);
-  for (var i = 0; i < newstate.length; i++){
-    for (var j = 0; j < newstate[i].length; j++){
-      newstate[i][j] = getNext1(state, i, j);
-    }
-  }
-  return newstate;
-}
-
 function applyObj(fill, i, j, obj){
   var arr = obj.arr;
   if (udfp(obj.center)){
@@ -506,6 +496,47 @@ function clockwiseArr(arr){
   return r;
 }
 
+function makeEmptyState(state){
+  var newstate = [];
+  for (var i = 0; i < state.length; i++){
+    newstate[i] = [];
+    for (var j = 0; j < state[i].length; j++){
+      newstate[i][j] = -1;
+    }
+  }
+  return newstate;
+}
+
+function getNextState(state){
+  //console.log("here");
+  var newstate = makeEmptyState(state);
+  for (var i = 0; i < state.length; i++){
+    for (var j = 0; j < state[i].length; j++){
+      if (state[i][j] === 1){
+        fillNewstateCircle(newstate, state, i, j);
+      }
+    }
+  }
+  return newstate;
+}
+
+function setState(state, i, j, v){
+  if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return;
+  state[i][j] = v;
+}
+
+function fillNewstateCircle(newstate, state, i, j){
+  for (var k = i-1; k <= i+1; k++){
+    if (k < 0 || k >= state.length)continue;
+    for (var l = j-1; l <= j+1; l++){
+      if (l < 0 || l >= state[k].length)continue;
+      if (newstate[k][l] === -1){
+        newstate[k][l] = getNext1(state, k, l);
+      }
+    }
+  }
+}
+
 function isLive(state, i, j){
   if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return false;
   return state[i][j];
@@ -527,22 +558,22 @@ function liveNeighbors(state, i, j){
 function getNext1(state, i, j){
   var n = liveNeighbors(state, i, j);
   if (isLive(state, i, j)){
-    return n == 2 || n == 3;
+    return (n == 2 || n == 3)?1:0;
   } else {
-    return n == 3;
+    return (n == 3)?1:0;
   }
 }
 
 var grid;
 var clear;
 
-function life(){
+function step(){
   grid.applyState(getNextState(grid.getState()));
 }
 
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
 var currspeed = 6;
-var runner = itr(function gridItrHandle(){life();});
+var runner = itr(function gridItrHandle(){step();});
 
 runner.onstart(function runnerStart(){
   T("startstop").innerHTML = "Stop";
@@ -716,6 +747,7 @@ document.addEventListener("DOMContentLoaded", function (){
   setspeed(speeds[currspeed]);
   
   T("startstop").onclick = startstop;
+  T("step").onclick = step;
   T("clear").onclick = function (){stop();clear();};
   T("faster").onclick = faster;
   T("slower").onclick = slower;

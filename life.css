@@ -21,7 +21,6 @@ div.grid {position: relative;}
 div.grid > div.main, div.grid > div.over {position: absolute; top: 0; left: 0;}
 div.grid > div.under {position: static;}
 
-div.sgrid {display: table; border-top: 1px dotted #AAA; border-left: 1px dotted #AAA;}
+div.sgrid {display: table;}
 div.sgrid > div {display: table-row;}
-div.sgrid > div > div {display: table-cell; position: relative; width: 10px; height: 10px; min-width: 10px; min-height: 10px; border-right: 1px dotted #AAA; border-bottom: 1px dotted #AAA;}
-div.sgrid > div > div.fill {background-color: #000;}
+div.sgrid > div > div {display: table-cell;}
