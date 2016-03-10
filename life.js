@@ -460,6 +460,20 @@ var gliderSE = {
   center: [2, 2]
 };
 
+var gliderGunSE = {
+  arr: [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
+    [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  ]
+};
+
 function clockwise(obj, n){
   if (udfp(n))n = 1;
   for (var i = n; i >= 1; i--){
@@ -735,13 +749,61 @@ function resetGliderButtons(){
   resetGliderOptButtons();
 }
 
+function gliderGunMode(){
+  gliderGunSEMode();
+}
+
+function gliderGunButtons(){
+  resetButtons();
+  disableButton(T("glidergun"));
+  T("glidergunopts").style.display = 'inline';
+}
+
+function resetGliderGunOptButtons(){
+  enableLink(T("glidergunse"), gliderGunSEMode);
+  enableLink(T("glidergunsw"), gliderGunSWMode);
+  enableLink(T("glidergunnw"), gliderGunNWMode);
+  enableLink(T("glidergunne"), gliderGunNEMode);
+}
+
+function gliderGunSEMode(){
+  gliderGunButtons();
+  disableLink(T("glidergunse"));
+  insertMode(gliderGunSE, 0);
+}
+
+function gliderGunSWMode(){
+  gliderGunButtons();
+  disableLink(T("glidergunsw"));
+  insertMode(gliderGunSE, 1);
+}
+
+function gliderGunNWMode(){
+  gliderGunButtons();
+  disableLink(T("glidergunnw"));
+  insertMode(gliderGunSE, 2);
+}
+
+function gliderGunNEMode(){
+  gliderGunButtons();
+  disableLink(T("glidergunne"));
+  insertMode(gliderGunSE, 3);
+}
+
+function resetGliderGunButtons(){
+  enableButton(T("glidergun"), gliderGunMode);
+  T("glidergunopts").style.display = 'none';
+  resetGliderGunOptButtons();
+}
+
 function resetButtons(){
   resetDrawButtons();
   resetGliderButtons();
+  resetGliderGunButtons();
 }
 
 document.addEventListener("DOMContentLoaded", function (){
-  grid = makeGrid(T("grid"), 80, 170, 2);
+  grid = makeGrid(T("grid"), 80, 170);
   clear = grid.clear;
   
   setspeed(speeds[currspeed]);
