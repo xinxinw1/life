@@ -428,21 +428,78 @@ function getNextState(state){
   return newstate;
 }
 
-function fillStateFn(state, fillFn){
-  fillFn(function (i, j){
-    if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return;
-    state[i][j] = true;
-  });
+function applyObj(fill, i, j, obj){
+  var arr = obj.arr;
+  if (udfp(obj.center)){
+    ci = Math.floor(arr.length/2);
+    cj = Math.floor(arr[0].length/2);
+  } else {
+    ci = obj.center[0];
+    cj = obj.center[1];
+  }
+  for (var r = 0; r < arr.length; r++){
+    for (var c = 0; c < arr[r].length; c++){
+      if (arr[r][c] === 1)fill(i+r-ci, j+c-cj);
+    }
+  }
 }
 
-// fillFn: = function (fill){fills fill;}
-function setOver(grid, fillFn){
+function setOver(grid, i, j, obj){
   var state = makeEmptyState(grid.getState());
-  fillStateFn(state, fillFn);
-  /*fillStateFn(state, function (fill){
-    applyGlider(fill, 5, 5, 0);
-  });*/
+  applyObj(function (i, j){
+    if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return;
+    state[i][j] = true;
+  }, i, j, obj);
   grid.applyStateOver(state);
+}
+
+function clearOver(grid){
+  grid.applyStateOver(makeEmptyState(grid.getState()));
+}
+
+var gliderSE = {
+  arr: [
+    [0, 0, 1],
+    [1, 0, 1],
+    [0, 1, 1]
+  ],
+  center: [2, 2]
+};
+
+function clockwise(obj, n){
+  if (udfp(n))n = 1;
+  for (var i = n; i >= 1; i--){
+    obj = clockwise1(obj);
+  }
+  return obj;
+}
+
+function clockwise1(obj){
+  var arr = obj.arr;
+  var origrows = arr.length;
+  var origcols = arr[0].length;
+  var o = {arr: clockwiseArr(obj.arr)};
+  if (!udfp(obj.center)){
+    var p = obj.center;
+    // this is the reverse of the line in clockwiseArr because
+    // it is [newi, newj] = [p[1], origrows-1-p[0]]
+    // while the other one is [oldi, oldj] = [origrows-1-j, i];
+    o.center = [p[1], origrows-1-p[0]];
+  }
+  return o;
+}
+
+function clockwiseArr(arr){
+  var origrows = arr.length;
+  var origcols = arr[0].length;
+  var r = [];
+  for (var i = 0; i < origcols; i++){
+    r[i] = [];
+    for (var j = 0; j < origrows; j++){
+      r[i][j] = arr[origrows-1-j][i];
+    }
+  }
+  return r;
 }
 
 function isLive(state, i, j){
@@ -477,59 +534,6 @@ var clear;
 
 function life(){
   grid.applyState(getNextState(grid.getState()));
-}
-
-var gliderSE = [
-  [0, 0, 1],
-  [1, 0, 1],
-  [0, 1, 1]
-];
-
-function clockwise(arr, n){
-  for (var i = n; i >= 1; i--){
-    arr = clockwise1(arr);
-  }
-  return arr;
-}
-
-function clockwise1(arr){
-  var origrows = arr.length;
-  var origcols = arr[0].length;
-  var r = [];
-  for (var i = 0; i < origcols; i++){
-    r[i] = [];
-    for (var j = 0; j < origrows; j++){
-      r[i][j] = arr[origrows-1-j][i];
-    }
-  }
-  return r;
-}
-
-function applyArr(fill, i, j, arr, ci, cj){
-  if (udfp(ci))ci = Math.floor(arr.length/2);
-  if (udfp(cj))cj = Math.floor(arr[0].length/2);
-  for (var r = 0; r < arr.length; r++){
-    for (var c = 0; c < arr[r].length; c++){
-      if (arr[r][c] === 1)fill(i+r-ci, j+c-cj);
-    }
-  }
-}
-
-function applyGlider(fill, i, j, n){
-  if (udfp(n))n = 0;
-  applyArr(fill, i, j, clockwise(gliderSE, n));
-}
-
-function mkGliderApplier(i, j, n){
-  return function (fill){
-    applyGlider(fill, i, j, n);
-  };
-}
-
-function mkGliderFiller(n){
-  return function (grid, i, j){
-    applyGlider(grid.fill, i, j, n);
-  };
 }
 
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
@@ -605,6 +609,20 @@ function clearMode(){
   grid.clearHandlers();
 }
 
+function insertMode(obj, n){
+  if (!udfp(n))obj = clockwise(obj, n);
+  clearMode();
+  grid.setOnenter(function (grid, i, j){
+    setOver(grid, i, j, obj);
+  });
+  grid.setOnleavegrid(function (grid){
+    clearOver(grid);
+  });
+  grid.setOnclick(function (grid, i, j){
+    applyObj(grid.fill, i, j, obj);
+  });
+}
+
 function emptyMode(){
   resetButtons();
   clearMode();
@@ -655,35 +673,25 @@ function resetGliderOptButtons(){
 function gliderSEMode(){
   gliderButtons();
   disableLink(T("gliderse"));
-  clearMode();
-  grid.setOnenter(function (grid, i, j){
-    setOver(grid, mkGliderApplier(i, j, 0));
-  });
-  grid.setOnleavegrid(function (grid, i, j){
-    setOver(grid, T.self);
-  });
-  grid.setOnclick(mkGliderFiller(0));
+  insertMode(gliderSE, 0);
 }
 
 function gliderSWMode(){
   gliderButtons();
   disableLink(T("glidersw"));
-  clearMode();
-  grid.setOnclick(mkGliderFiller(1));
+  insertMode(gliderSE, 1);
 }
 
 function gliderNWMode(){
   gliderButtons();
   disableLink(T("glidernw"));
-  clearMode();
-  grid.setOnclick(mkGliderFiller(2));
+  insertMode(gliderSE, 2);
 }
 
 function gliderNEMode(){
   gliderButtons();
   disableLink(T("gliderne"));
-  clearMode();
-  grid.setOnclick(mkGliderFiller(3));
+  insertMode(gliderSE, 3);
 }
 
 function resetGliderButtons(){
