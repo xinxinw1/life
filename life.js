@@ -444,17 +444,21 @@ function applyObj(fill, i, j, obj){
   }
 }
 
+var prevOver = udf;
+
 function setOver(grid, i, j, obj){
-  var state = makeEmptyState(grid.getState());
-  applyObj(function (i, j){
-    if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return;
-    state[i][j] = true;
-  }, i, j, obj);
-  grid.applyStateOver(state);
+  if (!udfp(prevOver))applyObj(grid.emptyOver, prevOver.i, prevOver.j, prevOver.obj);
+  applyObj(grid.fillOver, i, j, obj);
+  prevOver = {
+    obj: obj,
+    i: i, 
+    j: j
+  };
 }
 
 function clearOver(grid){
-  grid.applyStateOver(makeEmptyState(grid.getState()));
+  if (!udfp(prevOver))applyObj(grid.emptyOver, prevOver.i, prevOver.j, prevOver.obj);
+  prevOver = udf;
 }
 
 var gliderSE = {
