@@ -14,68 +14,197 @@ var clr = T.clr;
 var itr = T.itr;
 var stp = T.stp;
 
-var gsn = 0;
+var gs = T.gs;
+var sty = T.sty;
 
-function gs(){
-  return gsn++;
+function makeEmptyState(rows, cols){
+  var state = [];
+  for (var i = 0; i < rows; i++){
+    state[i] = [];
+    for (var j = 0; j < cols; j++){
+      state[i][j] = -1;
+    }
+  }
+  return state;
 }
 
-function stysheet(){
-  att(document.body, elm('style'));
-  return T.las(document.styleSheets);
+function makeEmptyStateFrom(state){
+  var rows = state.length;
+  var cols = (rows >= 1)?state[0].length:0;
+  return makeEmptyState(rows, cols);
 }
 
-function sty(){
-  var style = stysheet();
-  var rules = style.cssRules?style.cssRules:style.rules;
+function isValidState(state, i, j){
+  return !(i < 0 || j < 0 || i >= state.length || j >= state[i].length);
+}
+
+function isFilledState(state, i, j){
+  if (!isValidState(state, i, j))return false;
+  return state[i][j] === 1;
+}
+
+function makeSimpleState(rows, cols){
+  var state = makeEmptyState(rows, cols);
   
-  var n = 0;
-  
-  function push(rule){
-    style.insertRule(rule, 0);
-    n++;
+  function justFill(i, j){
+    state[i][j] = 1;
   }
   
-  function get(i){
-    return rules[n-1-i];
+  function justEmpty(i, j){
+    state[i][j] = 0;
   }
   
-  function has(i){
-    return !udfp(get(i));
+  function justFilled(i, j){
+    return state[i][j] === 1;
   }
   
-  function set(i, rule){
-    if (has(i))del(i);
-    ins(i, rule);
+  function valid(i, j){
+    return i >= 0 && j >= 0 && i < state.length && j < state[i].length;
   }
   
-  function ins(i, rule){
-    style.insertRule(rule, n-i);
-    n++;
+  var fillFn = function fillFn(i, j){
+    if (!valid(i, j))return;
+    justFill(i, j);
+  };
+  
+  var emptyFn = function emptyFn(i, j){
+    if (!valid(i, j))return;
+    justEmpty(i, j);
+  };
+  
+  function fill(i, j){
+    fillFn(i, j);
   }
   
-  function del(i){
-    style.deleteRule(n-1-i);
-    n--;
+  function empty(i, j){
+    emptyFn(i, j);
   }
   
-  function len(){
-    return n;
+  function filled(i, j){
+    if (!valid(i, j))return false;
+    return justFilled(i, j);
+  }
+  
+  function set(tf, i, j){
+    (tf?fill:empty)(i, j);
+  }
+  
+  function setNum(st, i, j){
+    set(st === 1, i, j);
+  }
+  
+  function toggle(i, j){
+    set(!filled(i, j), i, j);
+  }
+  
+  function getState(){
+    return state;
+  }
+  
+  var setStateFn = function setState(newstate){
+    state = newstate;
+  };
+  
+  function setState(newstate){
+    setStateFn(newstate);
+  }
+  
+  function clear(){
+    setState(makeEmptyState(rows, cols));
   }
   
   return {
-    push: push,
-    get: get,
-    has: has,
+    justFill: justFill,
+    justEmpty: justEmpty,
+    justFilled: justFilled,
+    valid: valid,
+    fill: fill,
+    setFill: function (f){fillFn = f;},
+    empty: empty,
+    setEmpty: function (f){emptyFn = f;},
+    filled: filled,
     set: set,
-    ins: ins,
-    del: del,
-    style: style,
-    get length(){return n;}
+    setNum: setNum,
+    toggle: toggle,
+    getState: getState,
+    setState: setState,
+    setSetState: function (f){setStateFn = f;},
+    clear: clear
   };
 }
 
+function setGetter(o, k, f){
+  Object.defineProperty(o, k, {get: f});
+}
+
+function setSetter(o, k, f){
+  Object.defineProperty(o, k, {set: f});
+}
+
+function makeState(rows, cols){
+  var state = makeSimpleState(rows, cols);
+  
+  var valid = state.valid;
+  var justFilled = state.justFilled;
+  var justFill = state.justFill;
+  var justEmpty = state.justEmpty;
+  
+  state.setFill(function fill(i, j){
+    if (!valid(i, j))return;
+    if (!justFilled(i, j)){
+      justFill(i, j);
+      onfill(i, j);
+    }
+  });
+  
+  state.setEmpty(function empty(i, j){
+    if (!valid(i, j))return;
+    if (justFilled(i, j)){
+      justEmpty(i, j);
+      onempty(i, j);
+    }
+  });
+  
+  var onfill, onempty;
+  
+  setSetter(state, "onfill", function (f){onfill = f;});
+  setSetter(state, "onempty", function (f){onempty = f;});
+  
+  function clearHandlers(){
+    onfill = function (i, j){};
+    onempty = function (i, j){};
+  }
+  
+  state.clearHandlers = clearHandlers;
+  
+  clearHandlers();
+  
+  var setNum = state.setNum;
+  
+  state.setSetState(function setState(newstate){
+    for (var i = 0; i < rows; i++){
+      for (var j = 0; j < cols; j++){
+        if (justFilled(i, j) !== (newstate[i][j] === 1)){
+          setNum(newstate[i][j], i, j);
+        }
+      }
+    }
+  });
+  
+  return state;
+}
+
 function makeSimpleGrid(elem, rows, cols){
+  var state = makeState(rows, cols);
+  
+  state.onfill = function (i, j){
+    gridarr[i][j].classList.add("fill");
+  };
+  
+  state.onempty = function (i, j){
+    gridarr[i][j].classList.remove("fill");
+  };
+  
   var gridcls = 'sgrid' + gs();
   
   var borderstyle = sty();
@@ -105,98 +234,17 @@ function makeSimpleGrid(elem, rows, cols){
   
   setCellSize("10px");
   
-  var grid;
-  
-  elem.classList.add('sgrid');
-  elem.classList.add(gridcls);
-  var gridarr = [];
-  var state = [];
-  for (var i = 0; i < rows; i++){
-    gridarr[i] = [];
-    state[i] = [];
-    var row = elm("div");
-    for (var j = 0; j < cols; j++){
-      var col = elm("div");
-      att(row, col);
-      gridarr[i][j] = col;
-      state[i][j] = 0;
-    }
-    att(elem, row);
-  }
-  
-  function fill(i, j, cls){
-    if (udfp(cls))cls = "fill";
-    if (udfp(gridarr[i]))return;
-    if (udfp(gridarr[i][j]))return;
-    if (!state[i][j]){
-      gridarr[i][j].classList.add(cls);
-      state[i][j] = 1;
-    }
-  }
-  
-  function empty(i, j){
-    if (udfp(gridarr[i]))return;
-    if (udfp(gridarr[i][j]))return;
-    if (state[i][j]){
-      gridarr[i][j].classList.remove("fill");;
-      state[i][j] = 0;
-    }
-  }
-  
-  function set(tf, i, j, cls){
-    (tf?fill:empty)(i, j, cls);
-  }
-  
-  function setNum(st, i, j, cls){
-    set(st === 1, i, j, cls);
-  }
-  
-  function isFilled(i, j){
-    if (udfp(state[i]))return false;
-    if (udfp(state[i][j]))return false;
-    return state[i][j] === 1;
-  }
-  
-  function toggle(i, j, cls){
-    set(!isFilled(i, j), i, j, cls);
-  }
-  
-  function clear(){
-    for (var i = 0; i < state.length; i++){
-      for (var j = 0; j < state[i].length; j++){
-        empty(i, j);
-      }
-    }
-  }
-  
-  function getState(){
-    return state;
-  }
-  
-  function applyState(newstate){
-    for (var i = 0; i < state.length; i++){
-      for (var j = 0; j < state[i].length; j++){
-        if (state[i][j] !== newstate[i][j]){
-          setNum(newstate[i][j], i, j);
-        }
-      }
-    }
-  }
-  
-  var ondrag = function (grid, i, j){};
-  var onclick = function (grid, i, j){};
-  var savedata = function (grid, i, j){};
-  var onclickone = function (grid, i, j, data){};
-  var onenter = function (grid, i, j){};
-  var onleavegrid = function (grid){};
+  var ondrag, onclick, savedata, onclickone, onenter, onleavegrid;
   
   function clearHandlers(){
-    ondrag = function (grid, i, j){};
-    onclick = function (grid, i, j){};
-    onclickone = function (grid, i, j, data){};
-    onenter = function (grid, i, j){};
-    onleavegrid = function (grid){};
+    ondrag = function (i, j){};
+    onclick = function (i, j){};
+    onclickone = function (i, j, data){};
+    onenter = function (i, j){};
+    onleavegrid = function (){};
   }
+  
+  clearHandlers();
   
   var data = udf;
   var hasPressedDown = false;
@@ -207,10 +255,10 @@ function makeSimpleGrid(elem, rows, cols){
     return function (e){
       if (e.which === 1){
         //console.log("mousedown i " + i + " j " + j);
-        data = savedata(grid, i, j);
+        data = savedata(i, j);
         hasPressedDown = true;
         hasDragged = false;
-        ondrag(grid, i, j);
+        ondrag(i, j);
         return false;
       }
     };
@@ -221,9 +269,9 @@ function makeSimpleGrid(elem, rows, cols){
       if (e.which === 1){
         //console.log("mouseup i " + i + " j " + j);
         if (hasPressedDown && !hasDragged){
-          onclickone(grid, i, j, data);
+          onclickone(i, j, data);
         }
-        onclick(grid, i, j);
+        onclick(i, j);
       }
     };
   }
@@ -232,10 +280,10 @@ function makeSimpleGrid(elem, rows, cols){
     return function (e){
       //console.log("mouseover i " + i + " j " + j);
       if (isDragging){
-        ondrag(grid, i, j);
+        ondrag(i, j);
         hasDragged = true;
       }
-      onenter(grid, i, j);
+      onenter(i, j);
     }
   }
   
@@ -248,7 +296,7 @@ function makeSimpleGrid(elem, rows, cols){
   };
   
   elem.onmouseleave = function (e){
-    onleavegrid(grid);
+    onleavegrid();
   };
   
   document.onmouseup = function docUpHandle(e){
@@ -260,39 +308,64 @@ function makeSimpleGrid(elem, rows, cols){
     }
   };
   
-  for (var i = 0; i < gridarr.length; i++){
-    for (var j = 0; j < gridarr[i].length; j++){
-      gridarr[i][j].onmouseenter = mkEnterFn(i, j);
-      gridarr[i][j].onmousedown = mkDownFn(i, j);
-      gridarr[i][j].onmouseup = mkUpFn(i, j);
+  elem.classList.add('sgrid');
+  elem.classList.add(gridcls);
+  var gridarr = [];
+  for (var i = 0; i < rows; i++){
+    gridarr[i] = [];
+    var row = elm("div");
+    for (var j = 0; j < cols; j++){
+      var col = elm("div");
+      col.onmouseenter = mkEnterFn(i, j);
+      col.onmousedown = mkDownFn(i, j);
+      col.onmouseup = mkUpFn(i, j);
+      att(row, col);
+      gridarr[i][j] = col;
     }
+    att(elem, row);
   }
   
-  grid = {
+  return {
+    valid: state.valid,
+    filled: state.filled,
+    fill: state.fill,
+    empty: state.empty,
+    set: state.set,
+    setNum: state.setNum,
+    toggle: state.toggle,
+    clear: state.clear,
+    getState: state.getState,
+    setState: state.setState,
     setBorder: setBorder,
     setFillColor: setFillColor,
     setFillOpacity: setFillOpacity,
     setCellSize: setCellSize,
-    isFilled: isFilled,
-    fill: fill,
-    empty: empty,
-    set: set,
-    setNum: setNum,
-    toggle: toggle,
-    clear: clear,
-    getState: getState,
-    applyState: applyState,
-    gridarr: gridarr,
     set onclick(f){onclick = f},
     set ondrag(f){ondrag = f},
     set savedata(f){savedata = f},
     set onclickone(f){onclickone = f},
     set onenter(f){onenter = f},
     set onleavegrid(f){onleavegrid = f},
-    clearHandlers: clearHandlers
+    clearHandlers: clearHandlers,
+    state: state,
+    gridarr: gridarr
   };
-  
-  return grid;
+}
+
+function applyObj(fill, i, j, obj){
+  var arr = obj.arr;
+  if (udfp(obj.center)){
+    ci = Math.floor(arr.length/2);
+    cj = Math.floor(arr[0].length/2);
+  } else {
+    ci = obj.center[0];
+    cj = obj.center[1];
+  }
+  for (var r = 0; r < arr.length; r++){
+    for (var c = 0; c < arr[r].length; c++){
+      if (arr[r][c] === 1)fill(i+r-ci, j+c-cj);
+    }
+  }
 }
 
 function makeGrid(elem, rows, cols){
@@ -322,134 +395,65 @@ function makeGrid(elem, rows, cols){
     overgrid.setCellSize(str);
   }
   
-  var setMainFillColor = maingrid.setFillColor;
   var setOverFillColor = overgrid.setFillColor;
-  var setUnderFillColor = undergrid.setFillColor;
-  
-  var setMainFillOpacity = maingrid.setFillOpacity;
   var setOverFillOpacity = overgrid.setFillOpacity;
+  var setMainFillColor = maingrid.setFillColor;
+  var setMainFillOpacity = maingrid.setFillOpacity;
+  var setUnderFillColor = undergrid.setFillColor;
   var setUnderFillOpacity = undergrid.setFillOpacity;
   
   setOverFillColor("#00FF00");
   setOverFillOpacity("0.5");
   
-  var fill = maingrid.fill;
-  var isFilled = maingrid.isFilled;
-  var empty = maingrid.empty;
-  var set = maingrid.set;
-  
-  var clear = maingrid.clear;
-  
-  var getState = maingrid.getState;
-  var applyState = maingrid.applyState;
-  
-  var applyStateOver = overgrid.applyState;
-  
-  var fillOver = overgrid.fill;
-  var emptyOver = overgrid.empty;
-  
-  var setOnclick = function (f){
-    overgrid.onclick = function (overgrid, i, j){
-      f(grid, i, j);
+  var prevOver = udf;
+
+  function setOver(i, j, obj){
+    if (!udfp(prevOver))clearOver();
+    applyObj(overgrid.fill, i, j, obj);
+    prevOver = {
+      obj: obj,
+      i: i, 
+      j: j
     };
-  };
+  }
   
-  var setOndrag = function (f){
-    overgrid.ondrag = function (overgrid, i, j){
-      f(grid, i, j);
-    };
-  };
-  
-  var setSavedata = function (f){
-    overgrid.savedata = function (overgrid, i, j){
-      return f(grid, i, j);
-    };
-  };
-  
-  var setOnclickone = function (f){
-    overgrid.onclickone = function (overgrid, i, j, data){
-      f(grid, i, j, data);
-    };
-  };
-  
-  var setOnenter = function (f){
-    overgrid.onenter = function (overgrid, i, j, data){
-      f(grid, i, j, data);
-    };
-  };
-  
-  var setOnleavegrid = function (f){
-    overgrid.onleavegrid = function (overgrid){
-      f(grid);
-    };
-  };
+  function clearOver(){
+    if (!udfp(prevOver))applyObj(overgrid.empty, prevOver.i, prevOver.j, prevOver.obj);
+    prevOver = udf;
+  }
   
   var clearHandlers = overgrid.clearHandlers;
   
-  
-  var grid = {
+  return {
     setBorder: setBorder,
     setCellSize: setCellSize,
-    setUnderFillColor: setUnderFillColor,
-    setMainFillColor: setMainFillColor,
     setOverFillColor: setOverFillColor,
-    setUnderFillOpacity: setUnderFillOpacity,
-    setMainFillOpacity: setMainFillOpacity,
     setOverFillOpacity: setOverFillOpacity,
-    fill: fill,
-    isFilled: isFilled,
-    empty: empty,
-    set: set,
-    clear: clear,
-    getState: getState,
-    applyState: applyState,
-    applyStateOver: applyStateOver,
-    fillOver: fillOver,
-    emptyOver: emptyOver,
-    setOnclick: setOnclick,
-    setOndrag: setOndrag,
-    setSavedata: setSavedata,
-    setOnclickone: setOnclickone,
-    setOnenter: setOnenter,
-    setOnleavegrid: setOnleavegrid,
+    setMainFillColor: setMainFillColor,
+    setMainFillOpacity: setMainFillOpacity,
+    setUnderFillColor: setUnderFillColor,
+    setUnderFillOpacity: setUnderFillOpacity,
+    valid: maingrid.valid,
+    fill: maingrid.fill,
+    filled: maingrid.filled,
+    empty: maingrid.empty,
+    set: maingrid.set,
+    clear: maingrid.clear,
+    getState: maingrid.getState,
+    setState: maingrid.setState,
+    setOver: setOver,
+    clearOver: clearOver,
+    set onclick(f){overgrid.onclick = f;},
+    set ondrag(f){overgrid.ondrag = f;},
+    set savedata(f){overgrid.savedata = f;},
+    set onclickone(f){overgrid.onclickone = f;},
+    set onenter(f){overgrid.onenter = f;},
+    set onleavegrid(f){overgrid.onleavegrid = f;},
     clearHandlers: clearHandlers
   };
-  
-  return grid;
 }
 
-function applyObj(fill, i, j, obj){
-  var arr = obj.arr;
-  if (udfp(obj.center)){
-    ci = Math.floor(arr.length/2);
-    cj = Math.floor(arr[0].length/2);
-  } else {
-    ci = obj.center[0];
-    cj = obj.center[1];
-  }
-  for (var r = 0; r < arr.length; r++){
-    for (var c = 0; c < arr[r].length; c++){
-      if (arr[r][c] === 1)fill(i+r-ci, j+c-cj);
-    }
-  }
-}
 
-var prevOver = udf;
-
-function setOver(grid, i, j, obj){
-  if (!udfp(prevOver))applyObj(grid.emptyOver, prevOver.i, prevOver.j, prevOver.obj);
-  applyObj(grid.fillOver, i, j, obj);
-  prevOver = {
-    obj: obj,
-    i: i, 
-    j: j
-  };
-}
-
-function clearOver(grid){
-  if (!udfp(prevOver))applyObj(grid.emptyOver, prevOver.i, prevOver.j, prevOver.obj);
-  prevOver = udf;
-}
 
 var gliderSE = {
   arr: [
@@ -510,20 +514,10 @@ function clockwiseArr(arr){
   return r;
 }
 
-function makeEmptyState(state){
-  var newstate = [];
-  for (var i = 0; i < state.length; i++){
-    newstate[i] = [];
-    for (var j = 0; j < state[i].length; j++){
-      newstate[i][j] = -1;
-    }
-  }
-  return newstate;
-}
 
 function getNextState(state){
   //console.log("here");
-  var newstate = makeEmptyState(state);
+  var newstate = makeEmptyStateFrom(state);
   for (var i = 0; i < state.length; i++){
     for (var j = 0; j < state[i].length; j++){
       if (state[i][j] === 1){
@@ -532,11 +526,6 @@ function getNextState(state){
     }
   }
   return newstate;
-}
-
-function setState(state, i, j, v){
-  if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return;
-  state[i][j] = v;
 }
 
 function fillNewstateCircle(newstate, state, i, j){
@@ -551,86 +540,226 @@ function fillNewstateCircle(newstate, state, i, j){
   }
 }
 
-function isLive(state, i, j){
-  if (i < 0 || j < 0 || i >= state.length || j >= state[i].length)return false;
-  return state[i][j];
-}
-
-function liveNeighbors(state, i, j){
-  var n = 0;
-  if (isLive(state, i-1, j-1))n++;
-  if (isLive(state, i-1, j))n++;
-  if (isLive(state, i-1, j+1))n++;
-  if (isLive(state, i, j-1))n++;
-  if (isLive(state, i, j+1))n++;
-  if (isLive(state, i+1, j-1))n++;
-  if (isLive(state, i+1, j))n++;
-  if (isLive(state, i+1, j+1))n++;
-  return n;
-}
-
 function getNext1(state, i, j){
   var n = liveNeighbors(state, i, j);
-  if (isLive(state, i, j)){
+  if (isFilledState(state, i, j)){
     return (n == 2 || n == 3)?1:0;
   } else {
     return (n == 3)?1:0;
   }
 }
 
-var grid;
-var clear;
+function liveNeighbors(state, i, j){
+  var n = 0;
+  if (isFilledState(state, i-1, j-1))n++;
+  if (isFilledState(state, i-1, j))n++;
+  if (isFilledState(state, i-1, j+1))n++;
+  if (isFilledState(state, i, j-1))n++;
+  if (isFilledState(state, i, j+1))n++;
+  if (isFilledState(state, i+1, j-1))n++;
+  if (isFilledState(state, i+1, j))n++;
+  if (isFilledState(state, i+1, j+1))n++;
+  return n;
+}
 
-function step(){
-  grid.applyState(getNextState(grid.getState()));
+function makeLifeState(rows, cols){
+  var state = makeSimpleState(rows, cols);
+  
+  var runner = itr(step);
+  
+  var onstart = function (){};
+  var onstop = function (){};
+  
+  runner.onstart = function (){
+    onstart();
+  };
+  
+  runner.onstop = function (){
+    n = 1;
+    onstop();
+  }
+  
+  var n = 1;
+  var ref = 50;
+  
+  var onrefresh = function (state){};
+  
+  function step(){
+    state.setState(getNextState(state.getState()));
+    if (n >= ref){
+      refresh();
+      n = 1;
+    } else {
+      n++;
+    }
+  }
+  
+  function refresh(){
+     onrefresh(state.getState());
+  }
+  
+  function refreshRate(r){
+    ref = r;
+  }
+  
+  function clear(){
+    // order of these two calls is backwards
+    // need to separate runner onstop callback from the actual stop
+    state.clear();
+    runner.stop();
+  }
+  
+  return {
+    fill: state.fill,
+    filled: state.filled,
+    empty: state.empty,
+    set: state.set,
+    getState: state.getState,
+    setState: state.setState,
+    step: step,
+    set onstart(f){onstart = f;},
+    set onstop(f){onstop = f;},
+    set onrefresh(f){onrefresh = f;},
+    start: runner.start,
+    stop: runner.stop,
+    startstop: runner.startstop,
+    started: runner.started,
+    speed: runner.speed,
+    refresh: refresh,
+    refreshRate: refreshRate,
+    clear: clear,
+    runner: runner
+  };
+}
+
+function makeLifeGrid(elem, rows, cols){
+  var grid = makeGrid(elem, rows, cols);
+  var state = makeLifeState(rows, cols);
+  
+  var curr = grid;
+  
+  var onstart = function (){};
+  var onstop = function (){};
+  
+  state.onstart = function (){
+    onstart();
+    state.setState(grid.getState());
+    curr = state;
+    stepFn = state.step;
+  };
+  
+  state.onstop = function (){
+    grid.setState(state.getState());
+    curr = grid;
+    stepFn = stepGrid;
+    onstop();
+  };
+  
+  state.onrefresh = grid.setState;
+  
+  function valid(i, j){
+    return curr.valid(i, j);
+  }
+  
+  function fill(i, j){
+    curr.fill(i, j);
+  }
+  
+  function empty(i, j){
+    curr.empty(i, j);
+  }
+  
+  function set(tf, i, j){
+    curr.set(tf, i, j);
+  }
+  
+  function filled(i, j){
+    return curr.filled(i, j);
+  }
+  
+  function clear(){
+    curr.clear();
+  }
+  
+  function getState(){
+    return curr.getState();
+  }
+  
+  function setState(newstate){
+    curr.setState(newstate);
+  }
+  
+  function stepGrid(){
+    grid.setState(getNextState(grid.getState()));
+  }
+  
+  var stepFn = stepGrid;
+  
+  function step(){
+    stepFn();
+  }
+  
+  return {
+    setBorder: grid.setBorder,
+    setCellSize: grid.setCellSize,
+    setOverFillColor: grid.setOverFillColor,
+    setOverFillOpacity: grid.setOverFillOpacity,
+    setMainFillColor: grid.setMainFillColor,
+    setMainFillOpacity: grid.setMainFillOpacity,
+    setUnderFillColor: grid.setUnderFillColor,
+    setUnderFillOpacity: grid.setUnderFillOpacity,
+    valid: valid,
+    fill: fill,
+    filled: filled,
+    empty: empty,
+    set: set,
+    clear: clear,
+    getState: getState,
+    setState: setState,
+    setOver: grid.setOver,
+    clearOver: grid.clearOver,
+    set onclick(f){grid.onclick = f;},
+    set ondrag(f){grid.ondrag = f;},
+    set savedata(f){grid.savedata = f;},
+    set onclickone(f){grid.onclickone = f;},
+    set onenter(f){grid.onenter = f;},
+    set onleavegrid(f){grid.onleavegrid = f;},
+    clearHandlers: grid.clearHandlers,
+    set onstart(f){onstart = f;},
+    set onstop(f){onstop = f;},
+    start: state.start,
+    stop: state.stop,
+    startstop: state.startstop,
+    started: state.started,
+    step: step,
+    speed: state.speed,
+    refresh: state.refresh,
+    refreshRate: state.refreshRate
+  };
 }
 
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
 var currspeed = 6;
-var runner = itr(function gridItrHandle(){step();});
 
-runner.onstart(function runnerStart(){
-  T("startstop").innerHTML = "Stop";
-});
-
-runner.onstop(function runnerStop(){
-  T("startstop").innerHTML = "Start";
-});
-
-var start = runner.start;
-var stop = runner.stop;
-var startstop = runner.startstop;
-
-function setspeed(n){
-  runner.interval(1000/n);
-  dispspeed(n);
+function speed(s){
+  grid.speed(s);
+  T("currspeed").innerHTML = "Speed: " + s + " runs/sec";
 }
 
 function faster(){
   if (currspeed+1 < speeds.length)currspeed++;
-  setspeed(speeds[currspeed]);
+  speed(speeds[currspeed]);
 }
 
 function slower(){
   if (currspeed-1 >= 0)currspeed--;
-  setspeed(speeds[currspeed]);
-}
-
-function dispspeed(n){
-  T("currspeed").innerHTML = "Speed: " + n + " runs/sec";
+  speed(speeds[currspeed]);
 }
 
 function retFalseFn(f){
   return function aFalseFn(){
     f();
     return false;
-  };
-}
-
-function retFnCall(f){
-  var args = T.sli(arguments, 1);
-  return function (){
-    return T.apl(f, args);
   };
 }
 
@@ -661,15 +790,13 @@ function clearMode(){
 function insertMode(obj, n){
   if (!udfp(n))obj = clockwise(obj, n);
   clearMode();
-  grid.setOnenter(function (grid, i, j){
-    setOver(grid, i, j, obj);
-  });
-  grid.setOnleavegrid(function (grid){
-    clearOver(grid);
-  });
-  grid.setOnclick(function (grid, i, j){
+  grid.onenter = function (i, j){
+    grid.setOver(i, j, obj);
+  };
+  grid.onleavegrid = grid.clearOver;
+  grid.onclick = function (i, j){
     applyObj(grid.fill, i, j, obj);
-  });
+  };
 }
 
 function emptyMode(){
@@ -681,21 +808,11 @@ function drawMode(){
   resetButtons();
   disableButton(T("draw"));
   clearMode();
-  
-  grid.setOndrag(function (grid, i, j){
-    //console.log("ondrag");
-    grid.fill(i, j);
-  });
-  
-  grid.setSavedata(function (grid, i, j){
-    return {origfill: grid.isFilled(i, j)};
-  });
-  
-  grid.setOnclickone(function (grid, i, j, data){
-    //console.log("onclickone");
-    //console.log(origfill);
-    grid.set(!data.origfill, i, j);
-  });
+  grid.ondrag = grid.fill;
+  grid.savedata = grid.filled;
+  grid.onclickone = function (i, j, origfill){
+    grid.set(!origfill, i, j);
+  };
 }
 
 function resetDrawButtons(){
@@ -803,14 +920,27 @@ function resetButtons(){
 }
 
 document.addEventListener("DOMContentLoaded", function (){
-  grid = makeGrid(T("grid"), 80, 170);
-  clear = grid.clear;
+  window.grid = makeLifeGrid(T("grid"), 80, 170);
   
-  setspeed(speeds[currspeed]);
+  grid.onstart = function (){
+    T("startstop").innerHTML = "Stop";
+  };
+  
+  grid.onstop = function (){
+    T("startstop").innerHTML = "Start";
+  };
+  
+  window.start = grid.start;
+  window.stop = grid.stop;
+  window.step = grid.step;
+  window.startstop = grid.startstop;
+  window.clear = grid.clear;
+  
+  speed(speeds[currspeed]);
   
   T("startstop").onclick = startstop;
   T("step").onclick = step;
-  T("clear").onclick = function (){stop();clear();};
+  T("clear").onclick = clear;
   T("faster").onclick = faster;
   T("slower").onclick = slower;
   
