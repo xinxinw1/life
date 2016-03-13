@@ -108,7 +108,9 @@
       step: step,
       speed: state.speed,
       refresh: state.refresh,
-      refreshRate: state.refreshRate
+      refreshRate: state.refreshRate,
+      grid: grid,
+      state: state
     };
   }
   

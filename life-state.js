@@ -3,7 +3,6 @@
 /* require tools */
 
 (function (udf){
-  var itr = $.itr;
   
   var createfrom = S.createfrom;
   var filled = S.filled;
@@ -59,42 +58,20 @@
   function makeLifeState(rows, cols){
     var state = makeSimpleState(rows, cols);
     
-    var runner = itr(step);
+    var runner = itrrefresh(run);
     
-    var onstart = function (){};
-    var onstop = function (){};
-    
-    runner.onstart = function (){
-      onstart();
-    };
-    
-    runner.onstop = function (){
-      n = 1;
-      onstop();
+    function run(){
+      state.setState(next(state.getState()));
     }
-    
-    var n = 1;
-    var ref = 50;
     
     var onrefresh = function (state){};
     
-    function step(){
-      state.setState(next(state.getState()));
-      if (n >= ref){
-        refresh();
-        n = 1;
-      } else {
-        n++;
-      }
-    }
-    
-    function refresh(){
+    runner.onrefresh = function (){
        onrefresh(state.getState());
     }
     
-    function refreshRate(r){
-      ref = r;
-    }
+    runner.refreshRate(1);
+    runner.speed(50);
     
     function clear(){
       // order of these two calls is backwards
@@ -110,17 +87,17 @@
       set: state.set,
       getState: state.getState,
       setState: state.setState,
-      step: step,
-      set onstart(f){onstart = f;},
-      set onstop(f){onstop = f;},
+      step: runner.step,
+      set onstart(f){runner.onstart = f;},
+      set onstop(f){runner.onstop = f;},
       set onrefresh(f){onrefresh = f;},
       start: runner.start,
       stop: runner.stop,
       startstop: runner.startstop,
       started: runner.started,
       speed: runner.speed,
-      refresh: refresh,
-      refreshRate: refreshRate,
+      refresh: runner.refresh,
+      refreshRate: runner.refreshRate,
       clear: clear,
       runner: runner
     };
