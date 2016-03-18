@@ -58,9 +58,9 @@
   function makeLifeState(rows, cols){
     var state = makeSimpleState(rows, cols);
     
-    var runner = itrrefresh(run);
+    var runner = itrrefresh(step, 50, 1);
     
-    function run(){
+    function step(){
       state.setState(next(state.getState()));
     }
     
@@ -70,12 +70,7 @@
        onrefresh(state.getState());
     }
     
-    runner.refreshRate(1);
-    runner.speed(50);
-    
     function clear(){
-      // order of these two calls is backwards
-      // need to separate runner onstop callback from the actual stop
       state.clear();
       runner.stop();
     }
@@ -87,7 +82,7 @@
       set: state.set,
       getState: state.getState,
       setState: state.setState,
-      step: runner.step,
+      step: step,
       set onstart(f){runner.onstart = f;},
       set onstop(f){runner.onstop = f;},
       set onrefresh(f){onrefresh = f;},
@@ -97,7 +92,7 @@
       started: runner.started,
       speed: runner.speed,
       refresh: runner.refresh,
-      refreshRate: runner.refreshRate,
+      refspeed: runner.refspeed,
       clear: clear,
       runner: runner
     };

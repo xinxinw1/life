@@ -109,7 +109,7 @@ function avgcoln(max){
 }
 
 function itr(f, n){
-  if (udfp(n))n = 0;
+  if (udfp(n))n = 0; // n = ms/run
   
   var runner;
   var needreset = true;
@@ -124,13 +124,9 @@ function itr(f, n){
       needreset = false;
     }
     //console.log("behind: " + (timr.time()-(runs*n)));
-    step();
+    f();
     runs++;
     runner = setTimeout(run, max((runs*n)-timr.time(), 0));
-  }
-  
-  function step(){
-    f();
   }
   
   var onstart = function (){};
@@ -172,7 +168,6 @@ function itr(f, n){
     stop: stop,
     startstop: startstop,
     started: started,
-    step: step,
     set onstart(f){onstart = f},
     set onstop(f){onstop = f;},
     set onreset(f){onreset = f;},
@@ -180,88 +175,34 @@ function itr(f, n){
   }
 }
 
-function itractual(f, n){
-  var runner = itr(run, n);
-  
-  var evryn = everyn(10, function (){
-    actualinterval(avgint.get());
-  });
-  
-  var actinttimr;
-  var avgint = avgcoln(100);
-  function run(){
-    if (!udfp(actinttimr)){
-      avgint.add(actinttimr.time());
-      evryn.check();
-    }
-    actinttimr = timer();
-    step();
-  }
-  
-  function step(){
-    f();
-  }
-  
-  var actualinterval = function (n){};
-  
-  runner.onreset = function (){
-    avgint.reset();
-    evryn.reset();
-    actinttimr = udf;
-  };
-  
-  function interval(n){
-    runner.interval(n);
-  }
-  
-  return {
-    start: runner.start,
-    stop: runner.stop,
-    startstop: runner.startstop,
-    started: runner.started,
-    step: step,
-    set onstart(f){runner.onstart = f},
-    set onstop(f){runner.onstop = f;},
-    set actualinterval(f){actualinterval = f;},
-    interval: interval
-  };
-}
-
-// n = runs/sec
 function itrspeed(f, s){
-  var runner = itractual(f);
+  if (udfp(s))s = 50; // s = runs/sec
+  
+  var runner = itr(f);
   
   function speed(s){
     runner.interval(Math.round(1000/s));
   }
   
-  if (!udfp(s))speed(s);
-  
-  var actualspeed = function (s){};
-  
-  // n = ms/run
-  // s = runs/sec
-  runner.actualinterval = function (n){
-    console.log("actualinterval: " + n);
-    actualspeed(1000/n);
-  };
+  speed(s);
   
   return {
     start: runner.start,
     stop: runner.stop,
     startstop: runner.startstop,
     started: runner.started,
-    step: runner.step,
     set onstart(f){runner.onstart = f},
     set onstop(f){runner.onstop = f;},
     speed: speed,
-    set actualspeed(f){actualspeed = f;},
     runner: runner
   };
 }
 
-function itrrefresh(f, s){
-  var runner = itrspeed(step);
+function itrrefresh(f, s, r){
+  if (udfp(s))s = 50; // s = runs/sec
+  if (udfp(r))r = 1; // r = refs/sec
+  
+  var runner = itrspeed(run, s);
   
   var onstart = function (){};
   var onstop = function (){};
@@ -275,12 +216,12 @@ function itrrefresh(f, s){
     onstop();
   }
   
-  function step(){
+  function run(){
     f();
     refresher.check();
   }
   
-  var refresher = everyn(0, refresh);
+  var refresher = everyn(refresh);
   
   var onrefresh = function (state){};
   
@@ -288,36 +229,24 @@ function itrrefresh(f, s){
      onrefresh();
   }
   
-  var refsPerSec;
-  function setRefreshRate(r){
-    refsPerSec = r;
+  function refspeed(r2){
+    r = r2;
+    updateRefresher();
   }
   
-  setRefreshRate(1);
-  
-  function refreshRate(r){
-    setRefreshRate(r);
-    updateRuns(runsPerSec);
+  function speed(s2){
+    s = s2;
+    updateRefresher();
+    runner.speed(s2);
   }
   
-  var runsPerSec;
-  function speed(s){
-    updateRuns(s);
-    runner.speed(s);
-  }
-  
-  function updateRuns(s){
-    runsPerSec = s;
-    var runsPerRef = Math.round(runsPerSec/refsPerSec);
+  function updateRefresher(){
+    var runsPerRef = Math.round(s/r);
     refresher.setn(runsPerRef);
-    console.log("runsPerRef " + runsPerRef);
+    //console.log("runsPerRef " + runsPerRef);
   }
   
-  speed(50);
-  
-  runner.actualspeed = updateRuns;
-  
-  if (!udfp(s))speed(s);
+  updateRefresher();
   
   return {
     set onstart(f){onstart = f;},
@@ -327,10 +256,9 @@ function itrrefresh(f, s){
     stop: runner.stop,
     startstop: runner.startstop,
     started: runner.started,
-    step: step,
     speed: speed,
     refresh: refresh,
-    refreshRate: refreshRate,
+    refspeed: refspeed,
     runner: runner
   };
 }

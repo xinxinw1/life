@@ -9,6 +9,8 @@ var udfp = $.udfp;
 var apply = S.apply;
 var makeLifeGrid = LG.makeLifeGrid;
 
+
+
 var gliderSE = {
   arr: [
     [0, 0, 1],
@@ -70,10 +72,11 @@ function clockwiseArr(arr){
 
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
 var currspeed = 6;
+var currrefspeed = 0;
 
 function speed(s){
   grid.speed(s);
-  $("currspeed").innerHTML = "Speed: " + s + " runs/sec";
+  $("currspeed").innerHTML = "" + s + " runs/sec";
 }
 
 function faster(){
@@ -85,6 +88,22 @@ function slower(){
   if (currspeed-1 >= 0)currspeed--;
   speed(speeds[currspeed]);
 }
+
+function refspeed(s){
+  grid.refspeed(s);
+  $("refspeed").innerHTML = "" + s + " refs/sec";
+}
+
+function reffaster(){
+  if (currrefspeed+1 < speeds.length)currrefspeed++;
+  refspeed(speeds[currrefspeed]);
+}
+
+function refslower(){
+  if (currrefspeed-1 >= 0)currrefspeed--;
+  refspeed(speeds[currrefspeed]);
+}
+
 
 function retFalseFn(f){
   return function aFalseFn(){
@@ -267,12 +286,15 @@ document.addEventListener("DOMContentLoaded", function (){
   window.clear = grid.clear;
   
   speed(speeds[currspeed]);
+  refspeed(speeds[currrefspeed]);
   
   $("startstop").onclick = startstop;
   $("step").onclick = step;
   $("clear").onclick = clear;
   $("faster").onclick = faster;
   $("slower").onclick = slower;
+  $("reffaster").onclick = reffaster;
+  $("refslower").onclick = refslower;
   
   drawMode(grid);
 });
