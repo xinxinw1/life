@@ -7,7 +7,148 @@
 var udf = $.udf;
 var udfp = $.udfp;
 var apply = S.apply;
-var makeLifeGrid = LG.makeLifeGrid;
+var fillemptysys = S.fillemptysys;
+var makeGrid = G.makeGrid;
+var makeSimpleState = S.makeSimpleState;
+var makeLifeState = LS.makeLifeState;
+
+
+function makeJointState(rows, cols){
+  var state = makeSimpleState(rows, cols);
+  
+  var fes = fillemptysys();
+  
+  var over = fes.over;
+  
+  over.fill = function (i, j){
+    socket.emit('fill', {i: i, j: j});
+  };
+  
+  over.empty = function (i, j){
+    socket.emit('empty', {i: i, j: j});
+  };
+  
+  var filled = function (){return false;};
+  
+  var fill = fes.fill;
+  var empty = fes.empty;
+  var set = fes.set;
+  var setNum = fes.setNum;
+  
+  function start(){
+    socket.emit('start');
+  }
+  
+  function stop(){
+    socket.emit('stop');
+  }
+  
+  function step(){
+    socket.emit('step');
+  }
+  
+  function clear(){
+    socket.emit('clear');
+  }
+  
+  function refresh(){
+    socket.emit('refresh');
+  }
+  
+  var onfill, onempty, onsetstate, onstart, onstop;
+  
+  socket.on('fill', function (o){
+    console.log("received fill");
+    state.fill(o.i, o.j);
+    onfill(o.i, o.j);
+  });
+  
+  socket.on('empty', function (o){
+    console.log("received empty");
+    state.empty(o.i, o.j);
+    onempty(o.i, o.j);
+  });
+  
+  socket.on('setstate', function (newstate){
+    console.log("received setstate");
+    state.setState(newstate);
+    onsetstate(newstate);
+  });
+  
+  var isstarted = false;
+  
+  socket.emit('checkstarted');
+  
+  socket.on('start', function (){
+    console.log("received start");
+    isstarted = true;
+    onstart();
+  });
+  
+  socket.on('stop', function (){
+    console.log("received stop");
+    onstop();
+    isstarted = false;
+  });
+  
+  function startstop(){
+    if (!isstarted)start();
+    else stop();
+  }
+  
+  function started(){
+    return isstarted;
+  }
+  
+  function getState(){
+    return state;
+  }
+  
+  function clearHandlers(){
+    onfill = function (i, j){};
+    onempty = function (i, j){};
+    onsetstate = function (newstate){};
+    onstart = function (){};
+    onstop = function (){};
+  }
+  
+  clearHandlers();
+  
+  function clean(){
+    onstop();
+    clearHandlers();
+    socket.removeAllListeners();
+  }
+  
+  var speed = function (){};
+  var refspeed = function (){};
+  
+  return {
+    valid: state.valid,
+    filled: state.filled,
+    fill: fill,
+    empty: empty,
+    set: set,
+    setNum: setNum,
+    getState: state.getState,
+    set onfill(f){onfill = f;},
+    set onempty(f){onempty = f;},
+    set onsetstate(f){onsetstate = f;},
+    set onstart(f){onstart = f;},
+    set onstop(f){onstop = f;},
+    clearHandlers: clearHandlers,
+    start: start,
+    stop: stop,
+    startstop: startstop,
+    started: started,
+    step: step,
+    clear: clear,
+    refresh: refresh,
+    speed: speed,
+    refspeed: refspeed,
+    clean: clean
+  };
+}
 
 
 
@@ -75,7 +216,7 @@ var currspeed = 6;
 var currrefspeed = 0;
 
 function speed(s){
-  grid.speed(s);
+  state.speed(s);
   $("currspeed").innerHTML = "" + s + " runs/sec";
 }
 
@@ -90,7 +231,7 @@ function slower(){
 }
 
 function refspeed(s){
-  grid.refspeed(s);
+  state.refspeed(s);
   $("refspeed").innerHTML = "" + s + " refs/sec";
 }
 
@@ -112,14 +253,22 @@ function retFalseFn(f){
   };
 }
 
+function pressedButton(elem){
+  elem.className = "pressed";
+}
+
+function notPressedButton(elem){
+  elem.className = "";
+}
+
 function enableButton(elem, fn){
   elem.onclick = fn;
-  elem.className = "";
+  notPressedButton(elem);
 }
 
 function disableButton(elem){
   elem.onclick = udf;
-  elem.className = "pressed";
+  pressedButton(elem);
 }
 
 function enableLink(elem, fn){
@@ -144,7 +293,7 @@ function insertMode(obj, n){
   };
   grid.onleavegrid = grid.clearOver;
   grid.onclick = function (i, j){
-    apply(grid.fill, i, j, obj);
+    apply(state.fill, i, j, obj);
   };
 }
 
@@ -157,10 +306,14 @@ function drawMode(){
   resetButtons();
   disableButton($("draw"));
   clearMode();
-  grid.ondrag = grid.fill;
-  grid.savedata = grid.filled;
+  grid.ondrag = function (i, j){
+    state.fill(i, j);
+  };
+  grid.savedata = function (i, j){
+    return state.filled(i, j);
+  };
   grid.onclickone = function (i, j, origfill){
-    grid.set(!origfill, i, j);
+    state.set(!origfill, i, j);
   };
 }
 
@@ -268,29 +421,73 @@ function resetButtons(){
   resetGliderGunButtons();
 }
 
-document.addEventListener("DOMContentLoaded", function (){
-  window.grid = makeLifeGrid($("grid"), 80, 170);
+var socket;
+
+function jointModeOn(){
+  if (udfp(socket)){
+    socket = io();
+    var state = makeJointState(80, 170);
+    setState(state);
+    state.refresh();
+    pressedButton($('joint'));
+  }
+}
+
+function jointModeOff(){
+  if (!udfp(socket)){
+    var oldstate = window.state;
+    var state = makeLifeState(80, 170);
+    setState(state);
+    state.setState(oldstate.getState());
+    socket.disconnect();
+    socket = udf;
+    notPressedButton($('joint'));
+  }
+}
+
+function jointModeToggle(){
+  if (udfp(socket))jointModeOn();
+  else jointModeOff();
+}
+
+function setState(state){
+  var oldstate = window.state;
+  if (!udfp(oldstate))oldstate.clean();
   
-  grid.onstart = function (){
+  state.onstart = function (){
     $("startstop").innerHTML = "Stop";
   };
   
-  grid.onstop = function (){
+  state.onstop = function (){
     $("startstop").innerHTML = "Start";
   };
   
-  window.start = grid.start;
-  window.stop = grid.stop;
-  window.step = grid.step;
-  window.startstop = grid.startstop;
-  window.clear = grid.clear;
+  state.onfill = grid.fill;
+  state.onempty = grid.empty;
+  state.onsetstate = grid.setState;
   
-  speed(speeds[currspeed]);
-  refspeed(speeds[currrefspeed]);
+  window.start = state.start;
+  window.stop = state.stop;
+  window.step = state.step;
+  window.startstop = state.startstop;
+  window.clear = state.clear;
   
   $("startstop").onclick = startstop;
   $("step").onclick = step;
   $("clear").onclick = clear;
+  
+  window.state = state;
+}
+
+document.addEventListener("DOMContentLoaded", function (){
+  //jointModeOn();
+  window.grid = makeGrid($("grid"), 80, 170);
+  setState(makeLifeState(80, 170));
+  
+  speed(speeds[currspeed]);
+  refspeed(speeds[currrefspeed]);
+  
+  $("joint").onclick = jointModeToggle;
   $("faster").onclick = faster;
   $("slower").onclick = slower;
   $("reffaster").onclick = reffaster;

@@ -5,13 +5,13 @@
   <title>Game of Life</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
+  <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
   <script src="lib/tools/tools.js"></script>
   <script src="lib/life-tools/tools-ext.js"></script>
   <script src="lib/life-tools/state.js"></script>
   <script src="lib/life-tools/life-state.js"></script>
   <script src="lib/life-tools/grid.js"></script>
   <link rel="stylesheet" href="lib/life-tools/grid.css">
-  <script src="lib/life-tools/life-grid.js"></script>
   <script src="life.js"></script>
   <link rel="stylesheet" href="life.css">
 </head>
@@ -22,6 +22,7 @@
       <button id="startstop">Start</button>
       <button id="step">Step</button>
       <button id="clear">Clear</button>
+      <button id="joint">Joint</button>
       Speed:
       <button id="slower">-</button>
       <span id="currspeed"></span>
