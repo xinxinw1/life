@@ -1,6 +1,6 @@
 [submodule "lib/tools"]
 	path = lib/tools
-	url = git@github.com:xinxinw1/tools
+	url = https://github.com/xinxinw1/tools.git
 [submodule "lib/life-tools"]
 	path = lib/life-tools
-	url = git@github.com:xinxinw1/life-tools
+	url = https://github.com/xinxinw1/life-tools.git
