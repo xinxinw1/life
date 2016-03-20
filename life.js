@@ -16,16 +16,18 @@ var makeLifeState = LS.makeLifeState;
 function makeJointState(rows, cols){
   var state = makeSimpleState(rows, cols);
   
+  var socket = udf;
+  
   var fes = fillemptysys();
   
   var over = fes.over;
   
   over.fill = function (i, j){
-    socket.emit('fill', {i: i, j: j});
+    socket.emit('fill', i, j);
   };
   
   over.empty = function (i, j){
-    socket.emit('empty', {i: i, j: j});
+    socket.emit('empty', i, j);
   };
   
   var filled = function (){return false;};
@@ -34,6 +36,10 @@ function makeJointState(rows, cols){
   var empty = fes.empty;
   var set = fes.set;
   var setNum = fes.setNum;
+  
+  function fillObj(i, j, obj){
+    socket.emit('fillobj', i, j, obj);
+  }
   
   function start(){
     socket.emit('start');
@@ -57,39 +63,7 @@ function makeJointState(rows, cols){
   
   var onfill, onempty, onsetstate, onstart, onstop;
   
-  socket.on('fill', function (o){
-    console.log("received fill");
-    state.fill(o.i, o.j);
-    onfill(o.i, o.j);
-  });
-  
-  socket.on('empty', function (o){
-    console.log("received empty");
-    state.empty(o.i, o.j);
-    onempty(o.i, o.j);
-  });
-  
-  socket.on('setstate', function (newstate){
-    console.log("received setstate");
-    state.setState(newstate);
-    onsetstate(newstate);
-  });
-  
   var isstarted = false;
-  
-  socket.emit('checkstarted');
-  
-  socket.on('start', function (){
-    console.log("received start");
-    isstarted = true;
-    onstart();
-  });
-  
-  socket.on('stop', function (){
-    console.log("received stop");
-    onstop();
-    isstarted = false;
-  });
   
   function startstop(){
     if (!isstarted)start();
@@ -114,10 +88,57 @@ function makeJointState(rows, cols){
   
   clearHandlers();
   
-  function clean(){
+  function init(newstate){
+    socket = io();
+    socket.on('fill', function (i, j){
+      console.log("received fill");
+      state.fill(i, j);
+      onfill(i, j);
+    });
+    
+    socket.on('empty', function (i, j){
+      console.log("received empty");
+      state.empty(i, j);
+      onempty(i, j);
+    });
+    
+    socket.on('setstate', function (newstate){
+      console.log("received setstate");
+      state.setState(newstate);
+      onsetstate(newstate);
+    });
+    
+    socket.on('start', function (){
+      console.log("received start");
+      isstarted = true;
+      onstart();
+    });
+    
+    socket.on('stop', function (){
+      console.log("received stop");
+      onstop();
+      isstarted = false;
+    });
+    
+    socket.on('connect', function (){
+      console.log("connected");
+      socket.emit('checkstarted');
+      refresh();
+    });
+    
+    socket.on('disconnect', function (){
+      console.log("disconnected");
+    });
+  }
+  
+  function deinit(){
     onstop();
     clearHandlers();
+    socket.disconnect();
     socket.removeAllListeners();
+    socket = udf;
+    isstarted = false;
+    return state.getState();
   }
   
   var speed = function (){};
@@ -128,6 +149,7 @@ function makeJointState(rows, cols){
     filled: state.filled,
     fill: fill,
     empty: empty,
+    fillObj: fillObj,
     set: set,
     setNum: setNum,
     getState: state.getState,
@@ -146,7 +168,8 @@ function makeJointState(rows, cols){
     refresh: refresh,
     speed: speed,
     refspeed: refspeed,
-    clean: clean
+    init: init,
+    deinit: deinit
   };
 }
 
@@ -293,7 +316,7 @@ function insertMode(obj, n){
   };
   grid.onleavegrid = grid.clearOver;
   grid.onclick = function (i, j){
-    apply(state.fill, i, j, obj);
+    state.fillObj(i, j, obj);
   };
 }
 
@@ -421,38 +444,35 @@ function resetButtons(){
   resetGliderGunButtons();
 }
 
-var socket;
+var isjoint = false;
+
+var jointstate, regstate;
 
 function jointModeOn(){
-  if (udfp(socket)){
-    socket = io();
-    var state = makeJointState(80, 170);
-    setState(state);
-    state.refresh();
+  if (!isjoint){
+    setState(jointstate);
     pressedButton($('joint'));
+    isjoint = true;
   }
 }
 
 function jointModeOff(){
-  if (!udfp(socket)){
-    var oldstate = window.state;
-    var state = makeLifeState(80, 170);
-    setState(state);
-    state.setState(oldstate.getState());
-    socket.disconnect();
-    socket = udf;
+  if (isjoint){
+    setState(regstate);
     notPressedButton($('joint'));
+    isjoint = false;
   }
 }
 
 function jointModeToggle(){
-  if (udfp(socket))jointModeOn();
+  if (!isjoint)jointModeOn();
   else jointModeOff();
 }
 
 function setState(state){
   var oldstate = window.state;
-  if (!udfp(oldstate))oldstate.clean();
+  if (!udfp(oldstate))state.init(oldstate.deinit());
+  else state.init();
   
   state.onstart = function (){
     $("startstop").innerHTML = "Stop";
@@ -480,9 +500,10 @@ function setState(state){
 }
 
 document.addEventListener("DOMContentLoaded", function (){
-  //jointModeOn();
   window.grid = makeGrid($("grid"), 80, 170);
-  setState(makeLifeState(80, 170));
+  window.jointstate = makeJointState(80, 170);
+  window.regstate = makeLifeState(80, 170);
+  setState(regstate);
   
   speed(speeds[currspeed]);
   refspeed(speeds[currrefspeed]);
