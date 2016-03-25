@@ -61,7 +61,15 @@ function makeJointState(rows, cols){
     socket.emit('refresh');
   }
   
-  var onfill, onempty, onsetstate, onstart, onstop;
+  function speed(s){
+    socket.emit('speed', s);
+  }
+  
+  function refspeed(r){
+    socket.emit('refspeed', r);
+  }
+  
+  var onfill, onempty, onsetstate, onstart, onstop, onspeed, onrefspeed;
   
   var isstarted = false;
   
@@ -84,12 +92,26 @@ function makeJointState(rows, cols){
     onsetstate = function (newstate){};
     onstart = function (){};
     onstop = function (){};
+    onspeed = function (s){};
+    onrefspeed = function (r){};
   }
   
   clearHandlers();
   
-  function init(newstate){
+  var s = 0;
+  var r = 0;
+  
+  function getSpeed(){
+    return s;
+  }
+  
+  function getRefspeed(){
+    return r;
+  }
+  
+  function init(o){
     socket = io();
+    
     socket.on('fill', function (i, j){
       console.log("received fill");
       state.fill(i, j);
@@ -104,26 +126,61 @@ function makeJointState(rows, cols){
     
     socket.on('setstate', function (newstate){
       console.log("received setstate");
+      recsetstate(newstate);
+    });
+    
+    function recsetstate(newstate){
       state.setState(newstate);
       onsetstate(newstate);
-    });
+    }
+    
+    function recstarted(tf){
+      isstarted = tf;
+      if (tf)onstart();
+      else onstop();
+    }
+    
+    function recspeed(s2){
+      s = s2;
+      onspeed(s);
+    }
+    
+    function recrefspeed(r2){
+      r = r2;
+      onrefspeed(r);
+    }
     
     socket.on('start', function (){
       console.log("received start");
-      isstarted = true;
-      onstart();
+      recstarted(true);
     });
     
     socket.on('stop', function (){
       console.log("received stop");
-      onstop();
-      isstarted = false;
+      recstarted(false);
+    });
+    
+    socket.on('speed', function (s){
+      console.log("received speed " + s);
+      recspeed(s);
+    });
+    
+    socket.on('refspeed', function (r){
+      console.log("received refspeed " + r);
+      recrefspeed(r);
     });
     
     socket.on('connect', function (){
       console.log("connected");
-      socket.emit('checkstarted');
-      refresh();
+      socket.emit('copystate');
+    });
+    
+    socket.on('copystate', function (o){
+      console.log("received copystate");
+      recstarted(o.started);
+      recsetstate(o.state);
+      recspeed(o.speed);
+      recrefspeed(o.refspeed);
     });
     
     socket.on('disconnect', function (){
@@ -138,11 +195,12 @@ function makeJointState(rows, cols){
     socket.removeAllListeners();
     socket = udf;
     isstarted = false;
-    return state.getState();
+    return {
+      state: state.getState(),
+      speed: getSpeed(),
+      refspeed: getRefspeed()
+    };
   }
-  
-  var speed = function (){};
-  var refspeed = function (){};
   
   return {
     valid: state.valid,
@@ -158,6 +216,8 @@ function makeJointState(rows, cols){
     set onsetstate(f){onsetstate = f;},
     set onstart(f){onstart = f;},
     set onstop(f){onstop = f;},
+    set onspeed(f){onspeed = f;},
+    set onrefspeed(f){onrefspeed = f;},
     clearHandlers: clearHandlers,
     start: start,
     stop: stop,
@@ -168,6 +228,8 @@ function makeJointState(rows, cols){
     refresh: refresh,
     speed: speed,
     refspeed: refspeed,
+    getSpeed: getSpeed,
+    getRefspeed: getRefspeed,
     init: init,
     deinit: deinit
   };
@@ -238,11 +300,6 @@ var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
 var currspeed = 6;
 var currrefspeed = 0;
 
-function speed(s){
-  state.speed(s);
-  $("currspeed").innerHTML = "" + s + " runs/sec";
-}
-
 function faster(){
   if (currspeed+1 < speeds.length)currspeed++;
   speed(speeds[currspeed]);
@@ -251,11 +308,6 @@ function faster(){
 function slower(){
   if (currspeed-1 >= 0)currspeed--;
   speed(speeds[currspeed]);
-}
-
-function refspeed(s){
-  state.refspeed(s);
-  $("refspeed").innerHTML = "" + s + " refs/sec";
 }
 
 function reffaster(){
@@ -482,6 +534,16 @@ function setState(state){
     $("startstop").innerHTML = "Start";
   };
   
+  state.onspeed = function (s){
+    $("currspeed").innerHTML = "" + s + " runs/sec";
+    currspeed = $.pos(s, speeds);
+  };
+  
+  state.onrefspeed = function (r){
+    $("refspeed").innerHTML = "" + r + " refs/sec";
+    currrefspeed = $.pos(r, speeds);
+  }
+  
   state.onfill = grid.fill;
   state.onempty = grid.empty;
   state.onsetstate = grid.setState;
@@ -491,6 +553,8 @@ function setState(state){
   window.step = state.step;
   window.startstop = state.startstop;
   window.clear = state.clear;
+  window.speed = state.speed;
+  window.refspeed = state.refspeed;
   
   $("startstop").onclick = startstop;
   $("step").onclick = step;
