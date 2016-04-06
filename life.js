@@ -231,7 +231,8 @@ function makeJointState(rows, cols){
     return {
       state: state.getState(),
       speed: getSpeed(),
-      refspeed: getRefspeed()
+      refspeed: getRefspeed(),
+      size: state.getSize()
     };
   }
   
