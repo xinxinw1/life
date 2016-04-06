@@ -209,11 +209,11 @@ function makeJointState(rows, cols){
     
     socket.on('copystate', function (o){
       console.log("received copystate");
+      recsize(o.size[0], o.size[1]);
       recstarted(o.started);
       recsetstate(o.state);
       recspeed(o.speed);
       recrefspeed(o.refspeed);
-      recsize(o.size[0], o.size[1]);
     });
     
     socket.on('disconnect', function (){
