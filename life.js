@@ -69,7 +69,11 @@ function makeJointState(rows, cols){
     socket.emit('refspeed', r);
   }
   
-  var onfill, onempty, onsetstate, onstart, onstop, onspeed, onrefspeed;
+  function size(r, c){
+    socket.emit('size', r, c);
+  }
+  
+  var onfill, onempty, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize;
   
   var isstarted = false;
   
@@ -94,6 +98,7 @@ function makeJointState(rows, cols){
     onstop = function (){};
     onspeed = function (s){};
     onrefspeed = function (r){};
+    onsize = function (r, c){};
   }
   
   clearHandlers();
@@ -112,16 +117,31 @@ function makeJointState(rows, cols){
   function init(o){
     socket = io();
     
-    socket.on('fill', function (i, j){
-      console.log("received fill");
+    var recfes = fillemptysys();
+    
+    recfes.over.fill = function (i, j){
       state.fill(i, j);
       onfill(i, j);
+    };
+    
+    recfes.over.empty = function (i, j){
+      state.empty(i, j);
+      onempty(i, j);
+    };
+    
+    socket.on('fill', function (i, j){
+      console.log("received fill");
+      recfes.fill(i, j);
     });
     
     socket.on('empty', function (i, j){
       console.log("received empty");
-      state.empty(i, j);
-      onempty(i, j);
+      recfes.empty(i, j);
+    });
+    
+    socket.on('fillobj', function (i, j, obj){
+      console.log("received fillobj");
+      recfes.fillObj(i, j, obj);
     });
     
     socket.on('setstate', function (newstate){
@@ -150,6 +170,13 @@ function makeJointState(rows, cols){
       onrefspeed(r);
     }
     
+    function recsize(r, c){
+      rows = r;
+      cols = c;
+      state.size(r, c);
+      onsize(r, c);
+    }
+    
     socket.on('start', function (){
       console.log("received start");
       recstarted(true);
@@ -170,6 +197,11 @@ function makeJointState(rows, cols){
       recrefspeed(r);
     });
     
+    socket.on('size', function (r, c){
+      console.log("received size " + r + " " + c);
+      recsize(r, c);
+    });
+    
     socket.on('connect', function (){
       console.log("connected");
       socket.emit('copystate');
@@ -181,6 +213,7 @@ function makeJointState(rows, cols){
       recsetstate(o.state);
       recspeed(o.speed);
       recrefspeed(o.refspeed);
+      recsize(o.size[0], o.size[1]);
     });
     
     socket.on('disconnect', function (){
@@ -218,6 +251,7 @@ function makeJointState(rows, cols){
     set onstop(f){onstop = f;},
     set onspeed(f){onspeed = f;},
     set onrefspeed(f){onrefspeed = f;},
+    set onsize(f){onsize = f;},
     clearHandlers: clearHandlers,
     start: start,
     stop: stop,
@@ -230,6 +264,7 @@ function makeJointState(rows, cols){
     refspeed: refspeed,
     getSpeed: getSpeed,
     getRefspeed: getRefspeed,
+    size: size,
     init: init,
     deinit: deinit
   };
@@ -542,7 +577,11 @@ function setState(state){
   state.onrefspeed = function (r){
     $("refspeed").innerHTML = "" + r + " refs/sec";
     currrefspeed = $.pos(r, speeds);
-  }
+  };
+  
+  state.onsize = function (r, c){
+    grid.size(r, c);
+  };
   
   state.onfill = grid.fill;
   state.onempty = grid.empty;
