@@ -1,0 +1,9 @@
+/****** Grid ******/
+
+div.sgrid {display: table;}
+div.sgrid > div {display: table-row;}
+div.sgrid > div > div {display: table-cell;}
+
+div.grid {position: relative;}
+div.grid > div.main, div.grid > div.over {position: absolute; top: 0; left: 0;}
+div.grid > div.under {position: static;}
