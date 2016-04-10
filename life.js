@@ -10,6 +10,7 @@ var apply = S.apply;
 var makeGrid = G.makeGrid;
 var makeLifeState = LS.makeLifeState;
 var makeJointState = LJ.makeJointState;
+var makeJointRoomState = LJ.makeJointRoomState;
 var makeSwitchState = SS.makeSwitchState;
 var applyTrans = LD.applyTrans;
 
@@ -18,7 +19,28 @@ var txt = $.txt;
 var att = $.att;
 var cpy = $.cpy;
 
-var menu_json = {
+var statesMenu = {
+  "local": {
+    "text": "Local",
+    "action": "local"
+  },
+  "joint": {
+    "text": "Joint",
+    "action": "joint"
+  },
+  "joint-room": {
+    "text": "Joint Room",
+    "action": "joint-room"
+  }
+};
+
+var statesActions = {
+  "local": localState,
+  "joint": jointState,
+  "joint-room": jointRoomState
+};
+
+var objectsMenu = {
   "draw": {
     "text": "Draw",
     "action": "draw"
@@ -113,17 +135,17 @@ var menu_json = {
   }
 };
 
-var actions = {
+var objectsActions = {
   "draw": drawMode,
   "insert": function (o){
     insertMode(LD.getData()[o.obj], o.trans);
   }
 };
 
-function buildMenu(div, menu){
+function buildMenu(elem, menu, actions){
   var buttons = {};
   
-  var attdiv = attBtw(div, function (){
+  var attelem = attBtw(elem, function (){
     return txt(" ");
   });
   
@@ -138,7 +160,7 @@ function buildMenu(div, menu){
         "elem": but,
         "fn": butfn
       };
-      attdiv(but);
+      attelem(but);
     } else if (!udfp(item['children'])){
       var childfns = [];
       var childs = item['children'];
@@ -167,8 +189,8 @@ function buildMenu(div, menu){
         };
         attchild(link);
       }
-      attdiv(but);
-      attdiv(opts);
+      attelem(but);
+      attelem(opts);
       buttons[i]['children'] = childfns;
     }
   }
@@ -345,37 +367,22 @@ function drawMode(){
   };
 }
 
-var isjoint = false;
-
-var jointstate, regstate;
-
-function jointModeOn(){
-  if (!isjoint){
-    state.switchState(jointstate);
-    pressedButton($('joint'));
-    isjoint = true;
-  }
+function localState(){
+  state.switchState(makeLifeState(80, 170));
 }
 
-function jointModeOff(){
-  if (isjoint){
-    state.switchState(regstate);
-    notPressedButton($('joint'));
-    isjoint = false;
-  }
+function jointState(){
+  state.switchState(makeJointState());
 }
 
-function jointModeToggle(){
-  if (!isjoint)jointModeOn();
-  else jointModeOff();
+function jointRoomState(){
+  state.switchState(makeJointRoomState());
 }
 
-var menu;
+var stateMenu, objectsMenu;
 
 document.addEventListener("DOMContentLoaded", function (){
   window.grid = makeGrid($("grid"), 80, 170);
-  window.jointstate = makeJointState();
-  window.regstate = makeLifeState(80, 170);
   window.state = makeSwitchState();
   
   state.onstart = function (){
@@ -404,8 +411,6 @@ document.addEventListener("DOMContentLoaded", function (){
   state.onempty = grid.empty;
   state.onsetstate = grid.setState;
   
-  state.switchState(regstate);
-  
   window.start = state.start;
   window.stop = state.stop;
   window.step = state.step;
@@ -418,16 +423,17 @@ document.addEventListener("DOMContentLoaded", function (){
   $("step").onclick = step;
   $("clear").onclick = clear;
   
-  speed(speeds[currspeed]);
-  refspeed(speeds[currrefspeed]);
-  
-  $("joint").onclick = jointModeToggle;
   $("faster").onclick = faster;
   $("slower").onclick = slower;
   $("reffaster").onclick = reffaster;
   $("refslower").onclick = refslower;
   
-  menu = buildMenu($('menu'), menu_json);
+  objectsMenu = buildMenu($('objects'), objectsMenu, objectsActions);
+  objectsMenu.call('draw');
   
-  menu.call('draw');
+  statesMenu = buildMenu($('states'), statesMenu, statesActions);
+  statesMenu.call('local');
+  
+  speed(speeds[currspeed]);
+  refspeed(speeds[currrefspeed]);
 });

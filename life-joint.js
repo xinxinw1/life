@@ -7,7 +7,8 @@
   var fillemptysys = S.fillemptysys;
   var makeSimpleState = S.makeSimpleState;
   
-  function makeJointState(){
+  function makeJointState(room){
+    if (udfp(room))room = "global";
     var state = makeSimpleState();
     
     var socket = udf;
@@ -109,7 +110,17 @@
     }
     
     function init(o){
-      socket = io();
+      socket = io("/states");
+      
+      socket.on('connect', function (){
+        console.log("connected");
+        socket.emit('join', room);
+      });
+      
+      socket.on('joined', function (){
+        console.log("joined", room);
+        socket.emit('copystate');
+      });
       
       var recfes = fillemptysys();
       
@@ -196,11 +207,6 @@
         recsize(r, c);
       });
       
-      socket.on('connect', function (){
-        console.log("connected");
-        socket.emit('copystate');
-      });
-      
       socket.on('copystate', function (o){
         console.log("received copystate");
         recsize(o.size[0], o.size[1]);
@@ -264,9 +270,14 @@
       deinit: deinit
     };
   }
+  
+  function makeJointRoomState(){
+    return makeJointState(prompt("Which room?"));
+  }
 
   var o = {
-    makeJointState: makeJointState
+    makeJointState: makeJointState,
+    makeJointRoomState: makeJointRoomState
   };
   
   window.LJ = o;
