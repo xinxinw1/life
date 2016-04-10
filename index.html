@@ -9,8 +9,11 @@
   <script src="lib/tools/tools.js"></script>
   <script src="lib/tools/tools-itr.js"></script>
   <script src="lib/life-tools/tools-ext.js"></script>
+  <script src="lib/life-tools/life-data.js"></script>
   <script src="lib/life-tools/state.js"></script>
   <script src="lib/life-tools/life-state.js"></script>
+  <script src="life-joint.js"></script>
+  <script src="life-switch.js"></script>
   <script src="grid.js"></script>
   <link rel="stylesheet" href="grid.css">
   <script src="life.js"></script>
@@ -19,7 +22,7 @@
 
 <body>
   <div id="page">
-    <div>
+    <div id="menu">
       <button id="startstop">Start</button>
       <button id="step">Step</button>
       <button id="clear">Clear</button>
@@ -32,15 +35,6 @@
       <button id="refslower">-</button>
       <span id="refspeed"></span>
       <button id="reffaster">+</button>
-      <button id="draw">Draw</button>
-      <button id="glider">Glider</button>
-      <span id="glideropts">
-        <a href="#" id="gliderse">SE</a> | <a href="#" id="glidersw">SW</a> | <a href="#" id="gliderne">NE</a> | <a href="#" id="glidernw">NW</a>
-      </span>
-      <button id="glidergun">Glider Gun</button>
-      <span id="glidergunopts">
-        <a href="#" id="glidergunse">SE</a> | <a href="#" id="glidergunsw">SW</a> | <a href="#" id="glidergunne">NE</a> | <a href="#" id="glidergunnw">NW</a>
-      </span>
     </div>
     <div id="debug"></div>
     <div id="grid"></div>

@@ -7,329 +7,249 @@
 var udf = $.udf;
 var udfp = $.udfp;
 var apply = S.apply;
-var fillemptysys = S.fillemptysys;
 var makeGrid = G.makeGrid;
-var makeSimpleState = S.makeSimpleState;
 var makeLifeState = LS.makeLifeState;
+var makeJointState = LJ.makeJointState;
+var makeSwitchState = SS.makeSwitchState;
+var applyTrans = LD.applyTrans;
 
+var elm = $.elm;
+var txt = $.txt;
+var att = $.att;
+var cpy = $.cpy;
 
-function makeJointState(rows, cols){
-  var state = makeSimpleState(rows, cols);
+var menu_json = {
+  "draw": {
+    "text": "Draw",
+    "action": "draw"
+  },
+  "glider": {
+    "text": "Glider",
+    "default": "se",
+    "children": {
+      "se": {
+        "text": "SE",
+        "action": "insert",
+        "obj": "glider-se"
+      },
+      "sw": {
+        "text": "SW",
+        "action": "insert",
+        "obj": "glider-se",
+        "trans": "clockwise_1"
+      },
+      "nw": {
+        "text": "NW",
+        "action": "insert",
+        "obj": "glider-se",
+        "trans": "clockwise_2"
+      },
+      "ne": {
+        "text": "NE",
+        "action": "insert",
+        "obj": "glider-se",
+        "trans": "clockwise_3"
+      }
+    }
+  },
+  "glider-gun-h": {
+    "text": "Glider Gun H",
+    "default": "se",
+    "children": {
+      "se": {
+        "text": "SE",
+        "action": "insert",
+        "obj": "glider-gun-se"
+      },
+      "sw": {
+        "text": "SW",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "flip_h"
+      },
+      "nw": {
+        "text": "NW",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "flip_hv"
+      },
+      "ne": {
+        "text": "NE",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "flip_v"
+      }
+    }
+  },
+  "glider-gun-v": {
+    "text": "Glider Gun V",
+    "default": "se",
+    "children": {
+      "se": {
+        "text": "SE",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "clockwise_1|flip_h"
+      },
+      "sw": {
+        "text": "SW",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "clockwise_1"
+      },
+      "nw": {
+        "text": "NW",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "clockwise_1|flip_v"
+      },
+      "ne": {
+        "text": "NE",
+        "action": "insert",
+        "obj": "glider-gun-se",
+        "trans": "clockwise_1|flip_hv"
+      }
+    }
+  }
+};
+
+var actions = {
+  "draw": drawMode,
+  "insert": function (o){
+    insertMode(LD.getData()[o.obj], o.trans);
+  }
+};
+
+function buildMenu(div, menu){
+  var buttons = {};
   
-  var socket = udf;
+  var attdiv = attBtw(div, function (){
+    return txt(" ");
+  });
   
-  var fes = fillemptysys();
-  
-  var over = fes.over;
-  
-  over.fill = function (i, j){
-    socket.emit('fill', i, j);
-  };
-  
-  over.empty = function (i, j){
-    socket.emit('empty', i, j);
-  };
-  
-  var filled = function (){return false;};
-  
-  var fill = fes.fill;
-  var empty = fes.empty;
-  var set = fes.set;
-  var setNum = fes.setNum;
-  
-  function fillObj(i, j, obj){
-    socket.emit('fillobj', i, j, obj);
+  for (var i in menu){
+    var item = menu[i];
+    var but = elm("button", item['text']);
+    if (!udfp(item['action'])){
+      var actionfn = makeActionFn(item['action'], makeParams(item));
+      var butfn = makeButtonFn(but, actionfn);
+      enableButton(but, butfn);
+      buttons[i] = {
+        "elem": but,
+        "fn": butfn
+      };
+      attdiv(but);
+    } else if (!udfp(item['children'])){
+      var childfns = [];
+      var childs = item['children'];
+      var opts = elm("span");
+      var def = item['default'];
+      buttons[i] = {
+        "elem": but,
+        "opts": opts
+      };
+      var attchild = attBtw(opts, function (){
+        return txt(" | ");
+      });
+      for (var j in childs){
+        var child = childs[j];
+        var link = elm("a", child['text']);
+        var actionfn = makeActionFn(child['action'], makeParams(child));
+        var linkfn = makeLinkFn(but, opts, link, actionfn);
+        enableLink(link, linkfn);
+        if (j === def){
+          enableButton(but, linkfn);
+          buttons[i]['fn'] = linkfn;
+        }
+        childfns[j] = {
+          "elem": link,
+          "fn": linkfn
+        };
+        attchild(link);
+      }
+      attdiv(but);
+      attdiv(opts);
+      buttons[i]['children'] = childfns;
+    }
   }
   
-  function start(){
-    socket.emit('start');
+  function makeParams(item){
+    var obj = cpy(item);
+    delete obj['text'];
+    delete obj['action'];
+    return obj;
   }
   
-  function stop(){
-    socket.emit('stop');
-  }
-  
-  function step(){
-    socket.emit('step');
-  }
-  
-  function clear(){
-    socket.emit('clear');
-  }
-  
-  function refresh(){
-    socket.emit('refresh');
-  }
-  
-  function speed(s){
-    socket.emit('speed', s);
-  }
-  
-  function refspeed(r){
-    socket.emit('refspeed', r);
-  }
-  
-  function size(r, c){
-    socket.emit('size', r, c);
-  }
-  
-  var onfill, onempty, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize;
-  
-  var isstarted = false;
-  
-  function startstop(){
-    if (!isstarted)start();
-    else stop();
-  }
-  
-  function started(){
-    return isstarted;
-  }
-  
-  function getState(){
-    return state;
-  }
-  
-  function clearHandlers(){
-    onfill = function (i, j){};
-    onempty = function (i, j){};
-    onsetstate = function (newstate){};
-    onstart = function (){};
-    onstop = function (){};
-    onspeed = function (s){};
-    onrefspeed = function (r){};
-    onsize = function (r, c){};
-  }
-  
-  clearHandlers();
-  
-  var s = 0;
-  var r = 0;
-  
-  function getSpeed(){
-    return s;
-  }
-  
-  function getRefspeed(){
-    return r;
-  }
-  
-  function init(o){
-    socket = io();
+  function attBtw(elem, btw){
+    var first = true;
     
-    var recfes = fillemptysys();
+    function att(item){
+      if (first){
+        first = false;
+      } else {
+        $.att(elem, btw());
+      }
+      $.att(elem, item);
+    }
     
-    recfes.over.fill = function (i, j){
-      state.fill(i, j);
-      onfill(i, j);
+    return att;
+  }
+  
+  function makeActionFn(action, params){
+    if (udfp(action)){
+      $.al("here");
+    }
+    return function (){
+      actions[action](params);
     };
-    
-    recfes.over.empty = function (i, j){
-      state.empty(i, j);
-      onempty(i, j);
+  }
+  
+  function makeButtonFn(but, actionfn){
+    return function (){
+      resetButtons();
+      disableButton(but);
+      actionfn();
     };
-    
-    socket.on('fill', function (i, j){
-      console.log("received fill");
-      recfes.fill(i, j);
-    });
-    
-    socket.on('empty', function (i, j){
-      console.log("received empty");
-      recfes.empty(i, j);
-    });
-    
-    socket.on('fillobj', function (i, j, obj){
-      console.log("received fillobj");
-      recfes.fillObj(i, j, obj);
-    });
-    
-    socket.on('setstate', function (newstate){
-      console.log("received setstate");
-      recsetstate(newstate);
-    });
-    
-    function recsetstate(newstate){
-      state.setState(newstate);
-      onsetstate(newstate);
-    }
-    
-    function recstarted(tf){
-      isstarted = tf;
-      if (tf)onstart();
-      else onstop();
-    }
-    
-    function recspeed(s2){
-      s = s2;
-      onspeed(s);
-    }
-    
-    function recrefspeed(r2){
-      r = r2;
-      onrefspeed(r);
-    }
-    
-    function recsize(r, c){
-      rows = r;
-      cols = c;
-      state.size(r, c);
-      onsize(r, c);
-    }
-    
-    socket.on('start', function (){
-      console.log("received start");
-      recstarted(true);
-    });
-    
-    socket.on('stop', function (){
-      console.log("received stop");
-      recstarted(false);
-    });
-    
-    socket.on('speed', function (s){
-      console.log("received speed " + s);
-      recspeed(s);
-    });
-    
-    socket.on('refspeed', function (r){
-      console.log("received refspeed " + r);
-      recrefspeed(r);
-    });
-    
-    socket.on('size', function (r, c){
-      console.log("received size " + r + " " + c);
-      recsize(r, c);
-    });
-    
-    socket.on('connect', function (){
-      console.log("connected");
-      socket.emit('copystate');
-    });
-    
-    socket.on('copystate', function (o){
-      console.log("received copystate");
-      recsize(o.size[0], o.size[1]);
-      recstarted(o.started);
-      recsetstate(o.state);
-      recspeed(o.speed);
-      recrefspeed(o.refspeed);
-    });
-    
-    socket.on('disconnect', function (){
-      console.log("disconnected");
+  }
+  
+  function makeLinkFn(but, opts, link, actionfn){
+    return makeButtonFn(but, function (){
+      opts.style.display = 'inline';
+      disableLink(link);
+      actionfn();
     });
   }
   
-  function deinit(){
-    onstop();
-    clearHandlers();
-    socket.disconnect();
-    socket.removeAllListeners();
-    socket = udf;
-    isstarted = false;
-    return {
-      state: state.getState(),
-      speed: getSpeed(),
-      refspeed: getRefspeed(),
-      size: state.getSize()
-    };
+  function resetButtons(){
+    for (var i in buttons){
+      var but = buttons[i];
+      enableButton(but['elem'], but['fn']);
+      if (!udfp(but['children'])){
+        var opts = but['opts'];
+        opts.style.display = 'none';
+        var childs = but['children'];
+        for (var i in childs){
+          var child = childs[i];
+          enableLink(child['elem'], child['fn']);
+        }
+      }
+    }
+  }
+  
+  function callButtonFn(but_tag, child_tag){
+    var but = buttons[but_tag];
+    if (udfp(child_tag)){
+      but['fn']();
+      return;
+    }
+    var child = but['children'][child_tag];
+    child['fn']();
   }
   
   return {
-    valid: state.valid,
-    filled: state.filled,
-    fill: fill,
-    empty: empty,
-    fillObj: fillObj,
-    set: set,
-    setNum: setNum,
-    getState: state.getState,
-    set onfill(f){onfill = f;},
-    set onempty(f){onempty = f;},
-    set onsetstate(f){onsetstate = f;},
-    set onstart(f){onstart = f;},
-    set onstop(f){onstop = f;},
-    set onspeed(f){onspeed = f;},
-    set onrefspeed(f){onrefspeed = f;},
-    set onsize(f){onsize = f;},
-    clearHandlers: clearHandlers,
-    start: start,
-    stop: stop,
-    startstop: startstop,
-    started: started,
-    step: step,
-    clear: clear,
-    refresh: refresh,
-    speed: speed,
-    refspeed: refspeed,
-    getSpeed: getSpeed,
-    getRefspeed: getRefspeed,
-    size: size,
-    init: init,
-    deinit: deinit
+    call: callButtonFn,
+    buttons: buttons
   };
-}
-
-
-
-var gliderSE = {
-  arr: [
-    [0, 0, 1],
-    [1, 0, 1],
-    [0, 1, 1]
-  ],
-  center: [2, 2]
-};
-
-var gliderGunSE = {
-  arr: [
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1],
-    [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-  ]
-};
-
-function clockwise(obj, n){
-  if (udfp(n))n = 1;
-  for (var i = n; i >= 1; i--){
-    obj = clockwise1(obj);
-  }
-  return obj;
-}
-
-function clockwise1(obj){
-  var arr = obj.arr;
-  var origrows = arr.length;
-  var origcols = arr[0].length;
-  var o = {arr: clockwiseArr(obj.arr)};
-  if (!udfp(obj.center)){
-    var p = obj.center;
-    // this is the reverse of the line in clockwiseArr because
-    // it is [newi, newj] = [p[1], origrows-1-p[0]]
-    // while the other one is [oldi, oldj] = [origrows-1-j, i];
-    o.center = [p[1], origrows-1-p[0]];
-  }
-  return o;
-}
-
-function clockwiseArr(arr){
-  var origrows = arr.length;
-  var origcols = arr[0].length;
-  var r = [];
-  for (var i = 0; i < origcols; i++){
-    r[i] = [];
-    for (var j = 0; j < origrows; j++){
-      r[i][j] = arr[origrows-1-j][i];
-    }
-  }
-  return r;
 }
 
 var speeds = [1, 2, 4, 10, 20, 50, 100, 1000]; // runs/second
@@ -396,8 +316,8 @@ function clearMode(){
   grid.clearHandlers();
 }
 
-function insertMode(obj, n){
-  if (!udfp(n))obj = clockwise(obj, n);
+function insertMode(obj, trans){
+  if (!udfp(trans))obj = applyTrans(obj, trans);
   clearMode();
   grid.onenter = function (i, j){
     grid.setOver(i, j, obj);
@@ -409,13 +329,10 @@ function insertMode(obj, n){
 }
 
 function emptyMode(){
-  resetButtons();
   clearMode();
 }
 
 function drawMode(){
-  resetButtons();
-  disableButton($("draw"));
   clearMode();
   grid.ondrag = function (i, j){
     state.fill(i, j);
@@ -428,117 +345,13 @@ function drawMode(){
   };
 }
 
-function resetDrawButtons(){
-  enableButton($("draw"), drawMode);
-}
-
-function gliderMode(){
-  gliderSEMode();
-}
-
-function gliderButtons(){
-  resetButtons();
-  disableButton($("glider"));
-  $("glideropts").style.display = 'inline';
-}
-
-function resetGliderOptButtons(){
-  enableLink($("gliderse"), gliderSEMode);
-  enableLink($("glidersw"), gliderSWMode);
-  enableLink($("glidernw"), gliderNWMode);
-  enableLink($("gliderne"), gliderNEMode);
-}
-
-function gliderSEMode(){
-  gliderButtons();
-  disableLink($("gliderse"));
-  insertMode(gliderSE, 0);
-}
-
-function gliderSWMode(){
-  gliderButtons();
-  disableLink($("glidersw"));
-  insertMode(gliderSE, 1);
-}
-
-function gliderNWMode(){
-  gliderButtons();
-  disableLink($("glidernw"));
-  insertMode(gliderSE, 2);
-}
-
-function gliderNEMode(){
-  gliderButtons();
-  disableLink($("gliderne"));
-  insertMode(gliderSE, 3);
-}
-
-function resetGliderButtons(){
-  enableButton($("glider"), gliderMode);
-  $("glideropts").style.display = 'none';
-  resetGliderOptButtons();
-}
-
-function gliderGunMode(){
-  gliderGunSEMode();
-}
-
-function gliderGunButtons(){
-  resetButtons();
-  disableButton($("glidergun"));
-  $("glidergunopts").style.display = 'inline';
-}
-
-function resetGliderGunOptButtons(){
-  enableLink($("glidergunse"), gliderGunSEMode);
-  enableLink($("glidergunsw"), gliderGunSWMode);
-  enableLink($("glidergunnw"), gliderGunNWMode);
-  enableLink($("glidergunne"), gliderGunNEMode);
-}
-
-function gliderGunSEMode(){
-  gliderGunButtons();
-  disableLink($("glidergunse"));
-  insertMode(gliderGunSE, 0);
-}
-
-function gliderGunSWMode(){
-  gliderGunButtons();
-  disableLink($("glidergunsw"));
-  insertMode(gliderGunSE, 1);
-}
-
-function gliderGunNWMode(){
-  gliderGunButtons();
-  disableLink($("glidergunnw"));
-  insertMode(gliderGunSE, 2);
-}
-
-function gliderGunNEMode(){
-  gliderGunButtons();
-  disableLink($("glidergunne"));
-  insertMode(gliderGunSE, 3);
-}
-
-function resetGliderGunButtons(){
-  enableButton($("glidergun"), gliderGunMode);
-  $("glidergunopts").style.display = 'none';
-  resetGliderGunOptButtons();
-}
-
-function resetButtons(){
-  resetDrawButtons();
-  resetGliderButtons();
-  resetGliderGunButtons();
-}
-
 var isjoint = false;
 
 var jointstate, regstate;
 
 function jointModeOn(){
   if (!isjoint){
-    setState(jointstate);
+    state.switchState(jointstate);
     pressedButton($('joint'));
     isjoint = true;
   }
@@ -546,7 +359,7 @@ function jointModeOn(){
 
 function jointModeOff(){
   if (isjoint){
-    setState(regstate);
+    state.switchState(regstate);
     notPressedButton($('joint'));
     isjoint = false;
   }
@@ -557,10 +370,13 @@ function jointModeToggle(){
   else jointModeOff();
 }
 
-function setState(state){
-  var oldstate = window.state;
-  if (!udfp(oldstate))state.init(oldstate.deinit());
-  else state.init();
+var menu;
+
+document.addEventListener("DOMContentLoaded", function (){
+  window.grid = makeGrid($("grid"), 80, 170);
+  window.jointstate = makeJointState();
+  window.regstate = makeLifeState(80, 170);
+  window.state = makeSwitchState();
   
   state.onstart = function (){
     $("startstop").innerHTML = "Stop";
@@ -588,6 +404,8 @@ function setState(state){
   state.onempty = grid.empty;
   state.onsetstate = grid.setState;
   
+  state.switchState(regstate);
+  
   window.start = state.start;
   window.stop = state.stop;
   window.step = state.step;
@@ -600,15 +418,6 @@ function setState(state){
   $("step").onclick = step;
   $("clear").onclick = clear;
   
-  window.state = state;
-}
-
-document.addEventListener("DOMContentLoaded", function (){
-  window.grid = makeGrid($("grid"), 80, 170);
-  window.jointstate = makeJointState(80, 170);
-  window.regstate = makeLifeState(80, 170);
-  setState(regstate);
-  
   speed(speeds[currspeed]);
   refspeed(speeds[currrefspeed]);
   
@@ -618,5 +427,7 @@ document.addEventListener("DOMContentLoaded", function (){
   $("reffaster").onclick = reffaster;
   $("refslower").onclick = refslower;
   
-  drawMode(grid);
+  menu = buildMenu($('menu'), menu_json);
+  
+  menu.call('draw');
 });
