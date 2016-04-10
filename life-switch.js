@@ -56,7 +56,7 @@
     
     function makePassFn(o, key){
       return function (){
-        apl(o()[key], arguments);
+        return apl(o()[key], arguments);
       };
     }
     
@@ -70,7 +70,7 @@
       return obj;
     }
     
-    att(o, makePassObj(function (){return state;}, 'valid', 'set', 'filled', 'setObj', 'getState', 'setState', 'getSize', 'start', 'stop', 'startstop', 'started', 'speed', 'refresh', 'refspeed', 'getSpeed', 'getRefspeed', 'size', 'clear', 'step', 'init', 'deinit'));
+    att(o, makePassObj(function (){return state;}, 'valid', 'set', 'get', 'setObj', 'getState', 'setState', 'getSize', 'start', 'stop', 'startstop', 'started', 'speed', 'refresh', 'refspeed', 'getSpeed', 'getRefspeed', 'size', 'clear', 'step', 'init', 'deinit'));
     
     return o;
   }

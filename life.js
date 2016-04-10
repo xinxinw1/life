@@ -150,12 +150,17 @@ var colorsMenu = {
   "red": {
     "text": "Red",
     "action": "red"
+  },
+  "blue": {
+    "text": "Blue",
+    "action": "blue"
   }
 };
 
 var colorsActions = {
   "black": blackColor,
-  "red": redColor
+  "red": redColor,
+  "blue": blueColor
 };
 
 function buildMenu(elem, menu, actions){
@@ -376,7 +381,7 @@ function drawMode(){
     state.set(color, i, j);
   };
   grid.savedata = function (i, j){
-    return state.filled(i, j);
+    return state.get(i, j) === color;
   };
   grid.onclickone = function (i, j, origfill){
     state.set(origfill?0:color, i, j);
@@ -403,6 +408,10 @@ function blackColor(){
 
 function redColor(){
   color = 2;
+}
+
+function blueColor(){
+  color = 3;
 }
 
 var stateMenu, objectsMenu;
@@ -433,8 +442,7 @@ document.addEventListener("DOMContentLoaded", function (){
     grid.size(r, c);
   };
   
-  state.onfill = grid.fill;
-  state.onempty = grid.empty;
+  state.onset = grid.set;
   state.onsetstate = grid.setState;
   
   window.start = state.start;

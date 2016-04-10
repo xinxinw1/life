@@ -24,8 +24,8 @@
     }
     
     state.onset = function (st, i, j){
-      if (st <= 0)removeAllClasses(gridarr[i][j]);
-      else gridarr[i][j].classList.add("fill" + st);
+      removeAllClasses(gridarr[i][j]);
+      if (st >= 1)gridarr[i][j].classList.add("fill" + st);
     };
     
     var gridcls = 'sgrid' + gs();
@@ -50,7 +50,8 @@
     }
     
     setFillColor(1, "#000");
-    setFillColor(1, "#000");
+    setFillColor(2, "red");
+    setFillColor(3, "blue");
     
     var fillopacitystyles = {};
     

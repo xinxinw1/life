@@ -24,7 +24,7 @@
     var set = fes.set;
     
     function setObj(st, i, j, obj){
-      socket.emit('setobj', i, j, obj);
+      socket.emit('setobj', st, i, j, obj);
     }
     
     function start(){
@@ -218,9 +218,9 @@
     
     return {
       valid: state.valid,
-      filled: state.filled,
       set: set,
       setObj: setObj,
+      get: state.get,
       getState: state.getState,
       set onset(f){onset = f;},
       set onsetstate(f){onsetstate = f;},
