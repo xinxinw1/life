@@ -18,12 +18,14 @@
   function makeSimpleGrid(elem, rows, cols){
     var state = makeState(rows, cols);
     
-    state.onfill = function (i, j){
-      gridarr[i][j].classList.add("fill");
-    };
+    function removeAllClasses(elem){
+      var arr = elem.classList;
+      while (arr.length > 0)arr.remove(arr[0]);
+    }
     
-    state.onempty = function (i, j){
-      gridarr[i][j].classList.remove("fill");
+    state.onset = function (st, i, j){
+      if (st <= 0)removeAllClasses(gridarr[i][j]);
+      else gridarr[i][j].classList.add("fill" + st);
     };
     
     var gridcls = 'sgrid' + gs();
@@ -36,16 +38,29 @@
     
     setBorder("1px dotted #AAA");
     
-    var fillcolorstyle = sty();
-    function setFillColor(str){
-      fillcolorstyle.set(0, 'div.' + gridcls + ' > div > div.fill {background-color: ' + str + ';}');
+    var fillstyles = {};
+    
+    function getFillColorStyle(st){
+      if (udfp(fillstyles[st]))fillstyles[st] = sty();
+      return fillstyles[st];
     }
     
-    setFillColor("#000");
+    function setFillColor(st, str){
+      getFillColorStyle(st).set(0, 'div.' + gridcls + ' > div > div.fill' + st + ' {background-color: ' + str + ';}');
+    }
     
-    var fillopacitystyle = sty();
-    function setFillOpacity(str){
-      fillopacitystyle.set(0, 'div.' + gridcls + ' > div > div.fill {opacity: ' + str + ';}');
+    setFillColor(1, "#000");
+    setFillColor(1, "#000");
+    
+    var fillopacitystyles = {};
+    
+    function getFillOpacityStyle(st){
+      if (udfp(fillopacitystyles[st]))fillopacitystyles[st] = sty();
+      return fillopacitystyles[st];
+    }
+    
+    function setFillOpacity(st, str){
+      getFillOpacityStyle(st).set(0, 'div.' + gridcls + ' > div > div.fill' + st + ' {opacity: ' + str + ';}');
     }
     
     var cellstyle = sty();
@@ -204,11 +219,8 @@
     return {
       valid: state.valid,
       filled: state.filled,
-      fill: state.fill,
-      empty: state.empty,
       set: state.set,
-      setNum: state.setNum,
-      toggle: state.toggle,
+      setter: state.setter,
       clear: state.clear,
       getState: state.getState,
       setState: state.setState,
@@ -263,14 +275,14 @@
     var setUnderFillColor = undergrid.setFillColor;
     var setUnderFillOpacity = undergrid.setFillOpacity;
     
-    setOverFillColor("#00FF00");
-    setOverFillOpacity("0.5");
+    setOverFillColor(1, "#00FF00");
+    setOverFillOpacity(1, "0.5");
     
     var prevOver = udf;
   
     function setOver(i, j, obj){
       if (!udfp(prevOver))clearOver();
-      apply(overgrid.fill, i, j, obj);
+      apply(overgrid.setter(1), i, j, obj);
       prevOver = {
         obj: obj,
         i: i, 
@@ -279,7 +291,7 @@
     }
     
     function clearOver(){
-      if (!udfp(prevOver))apply(overgrid.empty, prevOver.i, prevOver.j, prevOver.obj);
+      if (!udfp(prevOver))apply(overgrid.setter(0), prevOver.i, prevOver.j, prevOver.obj);
       prevOver = udf;
     }
     
@@ -301,10 +313,8 @@
       setUnderFillColor: setUnderFillColor,
       setUnderFillOpacity: setUnderFillOpacity,
       valid: maingrid.valid,
-      fill: maingrid.fill,
-      filled: maingrid.filled,
-      empty: maingrid.empty,
       set: maingrid.set,
+      setter: maingrid.setter,
       clear: maingrid.clear,
       getState: maingrid.getState,
       setState: maingrid.setState,

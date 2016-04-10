@@ -142,6 +142,22 @@ var objectsActions = {
   }
 };
 
+var colorsMenu = {
+  "black": {
+    "text": "Black",
+    "action": "black"
+  },
+  "red": {
+    "text": "Red",
+    "action": "red"
+  }
+};
+
+var colorsActions = {
+  "black": blackColor,
+  "red": redColor
+};
+
 function buildMenu(elem, menu, actions){
   var buttons = {};
   
@@ -346,7 +362,7 @@ function insertMode(obj, trans){
   };
   grid.onleavegrid = grid.clearOver;
   grid.onclick = function (i, j){
-    state.fillObj(i, j, obj);
+    state.setObj(color, i, j, obj);
   };
 }
 
@@ -357,13 +373,13 @@ function emptyMode(){
 function drawMode(){
   clearMode();
   grid.ondrag = function (i, j){
-    state.fill(i, j);
+    state.set(color, i, j);
   };
   grid.savedata = function (i, j){
     return state.filled(i, j);
   };
   grid.onclickone = function (i, j, origfill){
-    state.set(!origfill, i, j);
+    state.set(origfill?0:color, i, j);
   };
 }
 
@@ -377,6 +393,16 @@ function jointState(){
 
 function jointRoomState(){
   state.switchState(makeJointRoomState());
+}
+
+var color = 1;
+
+function blackColor(){
+  color = 1;
+}
+
+function redColor(){
+  color = 2;
 }
 
 var stateMenu, objectsMenu;
@@ -433,6 +459,9 @@ document.addEventListener("DOMContentLoaded", function (){
   
   statesMenu = buildMenu($('states'), statesMenu, statesActions);
   statesMenu.call('local');
+  
+  colorsMenu = buildMenu($('colors'), colorsMenu, colorsActions);
+  colorsMenu.call('black');
   
   speed(speeds[currspeed]);
   refspeed(speeds[currrefspeed]);

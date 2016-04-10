@@ -17,23 +17,14 @@
     
     var over = fes.over;
     
-    over.fill = function (i, j){
-      socket.emit('fill', i, j);
+    over.set = function (st, i, j){
+      socket.emit('set', st, i, j);
     };
     
-    over.empty = function (i, j){
-      socket.emit('empty', i, j);
-    };
-    
-    var filled = function (){return false;};
-    
-    var fill = fes.fill;
-    var empty = fes.empty;
     var set = fes.set;
-    var setNum = fes.setNum;
     
-    function fillObj(i, j, obj){
-      socket.emit('fillobj', i, j, obj);
+    function setObj(st, i, j, obj){
+      socket.emit('setobj', i, j, obj);
     }
     
     function start(){
@@ -68,7 +59,7 @@
       socket.emit('size', r, c);
     }
     
-    var onfill, onempty, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize;
+    var onset, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize;
     
     var isstarted = false;
     
@@ -86,8 +77,7 @@
     }
     
     function clearHandlers(){
-      onfill = function (i, j){};
-      onempty = function (i, j){};
+      onset = function (st, i, j){};
       onsetstate = function (newstate){};
       onstart = function (){};
       onstop = function (){};
@@ -124,29 +114,19 @@
       
       var recfes = fillemptysys();
       
-      recfes.over.fill = function (i, j){
-        state.fill(i, j);
-        onfill(i, j);
+      recfes.over.set = function (st, i, j){
+        state.set(st, i, j);
+        onset(st, i, j);
       };
       
-      recfes.over.empty = function (i, j){
-        state.empty(i, j);
-        onempty(i, j);
-      };
-      
-      socket.on('fill', function (i, j){
-        console.log("received fill");
-        recfes.fill(i, j);
+      socket.on('set', function (st, i, j){
+        console.log("received set");
+        recfes.set(st, i, j);
       });
       
-      socket.on('empty', function (i, j){
-        console.log("received empty");
-        recfes.empty(i, j);
-      });
-      
-      socket.on('fillobj', function (i, j, obj){
-        console.log("received fillobj");
-        recfes.fillObj(i, j, obj);
+      socket.on('setobj', function (st, i, j, obj){
+        console.log("received setobj");
+        recfes.setObj(st, i, j, obj);
       });
       
       socket.on('setstate', function (newstate){
@@ -239,14 +219,10 @@
     return {
       valid: state.valid,
       filled: state.filled,
-      fill: fill,
-      empty: empty,
-      fillObj: fillObj,
       set: set,
-      setNum: setNum,
+      setObj: setObj,
       getState: state.getState,
-      set onfill(f){onfill = f;},
-      set onempty(f){onempty = f;},
+      set onset(f){onset = f;},
       set onsetstate(f){onsetstate = f;},
       set onstart(f){onstart = f;},
       set onstop(f){onstop = f;},
