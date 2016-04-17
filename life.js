@@ -8,7 +8,7 @@ var udf = $.udf;
 var udfp = $.udfp;
 var apply = S.apply;
 var makeGrid = G.makeGrid;
-var makeLifeState = LS.makeLifeState;
+var makeColorState = LC.makeColorState;
 var makeJointState = LJ.makeJointState;
 var makeJointRoomState = LJ.makeJointRoomState;
 var makeSwitchState = SS.makeSwitchState;
@@ -18,6 +18,11 @@ var elm = $.elm;
 var txt = $.txt;
 var att = $.att;
 var cpy = $.cpy;
+
+var DEF_ROWS = 80;
+var DEF_COLS = 170;
+var DEF_SPEED = 10;
+var DEF_REFSPEED = 10;
 
 var statesMenu = {
   "local": {
@@ -137,8 +142,9 @@ var objectsMenu = {
 
 var objectsActions = {
   "draw": drawMode,
-  "insert": function (o){
+  "insert": function (cb, o){
     insertMode(LD.getData()[o.obj], o.trans);
+    cb();
   }
 };
 
@@ -174,12 +180,13 @@ function buildMenu(elem, menu, actions){
     var item = menu[i];
     var but = elm("button", item['text']);
     if (!udfp(item['action'])){
-      var actionfn = makeActionFn(item['action'], makeParams(item));
-      var butfn = makeButtonFn(but, actionfn);
-      enableButton(but, butfn);
+      var butfn = makeButtonFn(but);
+      var actionfn = makeActionFn(item['action'], makeParams(item), butfn);
+      enableButton(but, actionfn);
       buttons[i] = {
         "elem": but,
-        "fn": butfn
+        "fn": actionfn,
+        "switch": butfn
       };
       attelem(but);
     } else if (!udfp(item['children'])){
@@ -197,16 +204,18 @@ function buildMenu(elem, menu, actions){
       for (var j in childs){
         var child = childs[j];
         var link = elm("a", child['text']);
-        var actionfn = makeActionFn(child['action'], makeParams(child));
-        var linkfn = makeLinkFn(but, opts, link, actionfn);
-        enableLink(link, linkfn);
+        var linkfn = makeLinkFn(but, opts, link);
+        var actionfn = makeActionFn(child['action'], makeParams(child), linkfn);
+        enableLink(link, actionfn);
         if (j === def){
-          enableButton(but, linkfn);
-          buttons[i]['fn'] = linkfn;
+          enableButton(but, actionfn);
+          buttons[i]['fn'] = actionfn;
+          buttons[i]['switch'] = linkfn;
         }
         childfns[j] = {
           "elem": link,
-          "fn": linkfn
+          "fn": actionfn,
+          "switch": linkfn
         };
         attchild(link);
       }
@@ -238,28 +247,28 @@ function buildMenu(elem, menu, actions){
     return att;
   }
   
-  function makeActionFn(action, params){
+  function makeActionFn(action, params, cb){
     if (udfp(action)){
       $.al("here");
     }
     return function (){
-      actions[action](params);
+      actions[action](cb, params);
     };
   }
   
-  function makeButtonFn(but, actionfn){
+  function makeButtonFn(but, cb){
     return function (){
       resetButtons();
       disableButton(but);
-      actionfn();
+      if (cb)cb();
     };
   }
   
-  function makeLinkFn(but, opts, link, actionfn){
+  function makeLinkFn(but, opts, link, cb){
     return makeButtonFn(but, function (){
       opts.style.display = 'inline';
       disableLink(link);
-      actionfn();
+      if (cb)cb();
     });
   }
   
@@ -289,8 +298,19 @@ function buildMenu(elem, menu, actions){
     child['fn']();
   }
   
+  function callChangeFn(but_tag, child_tag){
+    var but = buttons[but_tag];
+    if (udfp(child_tag)){
+      but['switch']();
+      return;
+    }
+    var child = but['children'][child_tag];
+    child['switch']();
+  }
+  
   return {
     call: callButtonFn,
+    change: callChangeFn,
     buttons: buttons
   };
 }
@@ -367,7 +387,7 @@ function insertMode(obj, trans){
   };
   grid.onleavegrid = grid.clearOver;
   grid.onclick = function (i, j){
-    state.setObj(color, i, j, obj);
+    state.fillObj(i, j, obj);
   };
 }
 
@@ -375,49 +395,57 @@ function emptyMode(){
   clearMode();
 }
 
-function drawMode(){
+function drawMode(cb){
   clearMode();
   grid.ondrag = function (i, j){
-    state.set(color, i, j);
+    state.fill(i, j);
   };
   grid.savedata = function (i, j){
-    return state.get(i, j) === color;
+    return state.filled(i, j);
   };
   grid.onclickone = function (i, j, origfill){
-    state.set(origfill?0:color, i, j);
+    state.filltf(!origfill, i, j);
   };
+  cb();
 }
 
-function localState(){
-  state.switchState(makeLifeState(80, 170));
+function localState(cb){
+  state.switchState(makeColorState(DEF_ROWS, DEF_COLS));
+  cb();
 }
 
-function jointState(){
+function jointState(cb){
   state.switchState(makeJointState());
+  cb();
 }
 
-function jointRoomState(){
+function jointRoomState(cb){
   state.switchState(makeJointRoomState());
+  cb();
 }
 
-var color = 1;
+var colors = {
+  "black": 1,
+  "red": 2,
+  "blue": 3
+};
 
-function blackColor(){
-  color = 1;
+function blackColor(cb){
+  state.color(colors['black']);
 }
 
 function redColor(){
-  color = 2;
+  state.color(colors['red']);
 }
 
 function blueColor(){
-  color = 3;
+  state.color(colors['blue']);
 }
 
 var stateMenu, objectsMenu;
 
 document.addEventListener("DOMContentLoaded", function (){
-  window.grid = makeGrid($("grid"), 80, 170);
+  window.grid = makeGrid($("grid"));
   window.state = makeSwitchState();
   
   state.onstart = function (){
@@ -445,6 +473,10 @@ document.addEventListener("DOMContentLoaded", function (){
   state.onset = grid.set;
   state.onsetstate = grid.setState;
   
+  state.oncolor = function (st){
+    colorsMenu.change($.pos(st, colors));
+  };
+  
   window.start = state.start;
   window.stop = state.stop;
   window.step = state.step;
@@ -471,6 +503,6 @@ document.addEventListener("DOMContentLoaded", function (){
   colorsMenu = buildMenu($('colors'), colorsMenu, colorsActions);
   colorsMenu.call('black');
   
-  speed(speeds[currspeed]);
-  refspeed(speeds[currrefspeed]);
+  speed(DEF_SPEED);
+  refspeed(DEF_REFSPEED);
 });

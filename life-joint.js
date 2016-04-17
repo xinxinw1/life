@@ -13,18 +13,24 @@
     
     var socket = udf;
     
-    var fes = fillemptysys();
+    function fill(i, j){
+      socket.emit('fill', i, j);
+    }
     
-    var over = fes.over;
+    function empty(i, j){
+      socket.emit('empty', i, j);
+    }
     
-    over.set = function (st, i, j){
-      socket.emit('set', st, i, j);
-    };
+    function filltf(tf, i, j){
+      (tf?fill:empty)(i, j);
+    }
     
-    var set = fes.set;
+    function fillObj(i, j, obj){
+      socket.emit('fillobj', i, j, obj);
+    }
     
-    function setObj(st, i, j, obj){
-      socket.emit('setobj', st, i, j, obj);
+    function color(st){
+      socket.emit('color', st);
     }
     
     function start(){
@@ -59,7 +65,7 @@
       socket.emit('size', r, c);
     }
     
-    var onset, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize;
+    var onset, onsetstate, onstart, onstop, onspeed, onrefspeed, onsize, oncolor;
     
     var isstarted = false;
     
@@ -84,12 +90,14 @@
       onspeed = function (s){};
       onrefspeed = function (r){};
       onsize = function (r, c){};
+      oncolor = function (c){};
     }
     
     clearHandlers();
     
     var s = 0;
     var r = 0;
+    var c = 1;
     
     function getSpeed(){
       return s;
@@ -97,6 +105,14 @@
     
     function getRefspeed(){
       return r;
+    }
+    
+    function getColor(){
+      return c;
+    }
+    
+    function filled(i, j){
+      return state.get(i, j) === c;
     }
     
     function init(o){
@@ -162,6 +178,11 @@
         onsize(r, c);
       }
       
+      function reccolor(st){
+        c = st;
+        oncolor(st);
+      }
+      
       socket.on('start', function (){
         console.log("received start");
         recstarted(true);
@@ -187,6 +208,11 @@
         recsize(r, c);
       });
       
+      socket.on('color', function (st){
+        console.log("received color " + st);
+        reccolor(st);
+      });
+      
       socket.on('copystate', function (o){
         console.log("received copystate");
         recsize(o.size[0], o.size[1]);
@@ -194,6 +220,7 @@
         recsetstate(o.state);
         recspeed(o.speed);
         recrefspeed(o.refspeed);
+        reccolor(o.color);
       });
       
       socket.on('disconnect', function (){
@@ -212,15 +239,18 @@
         state: state.getState(),
         speed: getSpeed(),
         refspeed: getRefspeed(),
-        size: state.getSize()
+        size: state.getSize(),
+        color: getColor()
       };
     }
     
     return {
       valid: state.valid,
-      set: set,
-      setObj: setObj,
-      get: state.get,
+      fill: fill,
+      empty: empty,
+      filltf: filltf,
+      fillObj: fillObj,
+      filled: filled,
       getState: state.getState,
       set onset(f){onset = f;},
       set onsetstate(f){onsetstate = f;},
@@ -229,6 +259,7 @@
       set onspeed(f){onspeed = f;},
       set onrefspeed(f){onrefspeed = f;},
       set onsize(f){onsize = f;},
+      set oncolor(f){oncolor = f;},
       clearHandlers: clearHandlers,
       start: start,
       stop: stop,
@@ -241,6 +272,8 @@
       refspeed: refspeed,
       getSpeed: getSpeed,
       getRefspeed: getRefspeed,
+      color: color,
+      getColor: getColor,
       size: size,
       init: init,
       deinit: deinit

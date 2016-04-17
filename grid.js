@@ -16,6 +16,8 @@
   var makeState = S.makeState;
   
   function makeSimpleGrid(elem, rows, cols){
+    if (udfp(rows))rows = 0;
+    if (udfp(cols))cols = 0;
     var state = makeState(rows, cols);
     
     function removeAllClasses(elem){
